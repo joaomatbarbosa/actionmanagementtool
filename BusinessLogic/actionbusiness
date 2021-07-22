@@ -1,0 +1,634 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Data;
+using UtilitiesLibrary;
+using BusinessObjectLibrary;
+using DataLibrary;
+using Oracle.DataAccess.Client;
+
+namespace BusinessLibrary
+{
+    public class ActionBusiness
+    {
+
+        public static List<ActionTreeObject> BusinessActionTree(string ID_EVENT, string Permission, string EmployeeID)
+        {
+            List<ActionTreeObject> ActionTreeItems = new List<ActionTreeObject>();
+            DataTable data = DataCall.DCActionTree(ID_EVENT, Permission, EmployeeID);
+
+            foreach (DataRow row in data.Rows)
+            {
+
+                string validator = row.ItemArray[1].ToString();
+                if (validator.Length > 1)
+                {
+                    ActionTreeItems.Add(new ActionTreeObject()
+                    {
+                        A_ID = row["A_ID"].ToString(),
+                        text = row["A_ID"].ToString(),
+                        A_OWNER = row["A_OWNER"].ToString(),
+                        A_SHORT_DESCRIPTION = row["A_SHORT_DESCRIPTION"].ToString(),
+                        A_LONG_DESCRIPTION = row["A_LONG_DESCRIPTION"].ToString(),
+                        A_PLANNED_START = Convert.ToDateTime(row["A_PLANNED_START"].ToString()).ToString("dd/MM/yyyy"),
+                        A_START_DATE = (row["A_START_DATE"].ToString() == "") ? "" : Convert.ToDateTime(row["A_START_DATE"].ToString()).ToString("dd/MM/yyyy HH:mm"),
+                        A_PLANNED_END = Convert.ToDateTime(row["A_PLANNED_END"].ToString()).ToString("dd/MM/yyyy"),
+                        A_FORECAST_ENDDATE = (row["A_FORECAST_ENDDATE"].ToString().Length > 0) ? Convert.ToDateTime(row["A_FORECAST_ENDDATE"].ToString()).ToString("dd/MM/yyyy") : Convert.ToDateTime(row["A_PLANNED_END"].ToString()).ToString("dd/MM/yyyy"),
+                        A_END_DATE = (row["A_END_DATE"].ToString() == "") ? "" : Convert.ToDateTime(row["A_END_DATE"].ToString()).ToString("dd/MM/yyyy HH:mm"),
+                        A_ACCOMPLISHMENT = row["A_ACCOMPLISHMENT"].ToString(),
+                        A_STATUS = row["A_STATUS"].ToString(),
+                        A_STATUS_REPORT = row["A_STATUS_REPORT"].ToString(),
+                        A_WEIGHT = row["A_WEIGHT"].ToString(),
+                        leaf = false,
+                        expanded = true,
+                    });
+                }
+                else
+                {
+                    int d = ActionTreeItems.FindIndex(x => x.A_ID == row["A_PARENT"].ToString());
+                    ActionTreeItems[d].filhos.Add(new ActionTreeObject()
+                    {
+                        A_ID = row["A_ID"].ToString(),
+                        text = row["A_ID"].ToString().Substring(12, 2),
+                        A_OWNER = row["A_OWNER"].ToString(),
+                        A_SHORT_DESCRIPTION = row["A_SHORT_DESCRIPTION"].ToString(),
+                        A_LONG_DESCRIPTION = row["A_LONG_DESCRIPTION"].ToString(),
+                        A_PLANNED_START = Convert.ToDateTime(row["A_PLANNED_START"].ToString()).ToString("dd/MM/yyyy"),
+                        A_START_DATE = (row["A_START_DATE"].ToString() == "") ? "" : Convert.ToDateTime(row["A_START_DATE"].ToString()).ToString("dd/MM/yyyy HH:mm"),
+                        A_PLANNED_END = Convert.ToDateTime(row["A_PLANNED_END"].ToString()).ToString("dd/MM/yyyy"),
+                        A_END_DATE = (row["A_END_DATE"].ToString() == "") ? "" : Convert.ToDateTime(row["A_END_DATE"].ToString()).ToString("dd/MM/yyyy HH:mm"),
+                        A_FORECAST_ENDDATE = (row["A_FORECAST_ENDDATE"].ToString().Length > 0) ? Convert.ToDateTime(row["A_FORECAST_ENDDATE"].ToString()).ToString("dd/MM/yyyy") : Convert.ToDateTime(row["A_PLANNED_END"].ToString()).ToString("dd/MM/yyyy"),
+                        A_STATUS = row["A_STATUS"].ToString(),
+                        A_STATUS_REPORT = row["A_STATUS_REPORT"].ToString(),
+                        A_ACCOMPLISHMENT = row["A_ACCOMPLISHMENT"].ToString(),
+                        A_WEIGHT = row["A_WEIGHT"].ToString(),
+                        A_PARENT = row["A_PARENT"].ToString(),
+                        leaf = true,
+                    });
+                }
+
+
+            };
+
+            ActionTreeItems.ForEach(delegate (ActionTreeObject pai)
+            {
+
+                double accomplishment = 0;
+                int concludedCount = 0;
+                int planLength = 0;
+
+                pai.filhos.ForEach(delegate (ActionTreeObject son)
+                {
+
+                    pai.A_ACCOMPLISHMENT = (accomplishment = accomplishment + (Convert.ToDouble(son.A_ACCOMPLISHMENT) / 100) * (Convert.ToDouble(son.A_WEIGHT) / 100) * 100).ToString();
+
+                    planLength++;
+
+                    if (son.A_STATUS == "Closed")
+                    {
+                        concludedCount++;
+                    }
+
+                });
+
+                if (pai.A_STATUS != "Concluded" && pai.A_STATUS != "Closed")
+                {
+                    if (planLength == concludedCount && planLength != 0)
+                    {
+                        string[] infoArray = new string[1];
+                        infoArray[0] = pai.A_ID;
+                        DataCall.concludeActionGroup(infoArray);
+                        pai.A_STATUS = "Concluded";
+                    }
+                }
+
+
+                string[] accomplishmentUpdate = new string[2];
+                accomplishmentUpdate[0] = pai.A_ACCOMPLISHMENT;
+                accomplishmentUpdate[1] = pai.A_ID;
+
+                updateGroupAccomplishment(accomplishmentUpdate);
+
+            });
+
+
+            double planaccomplishment = 0;
+
+            ActionTreeItems.ForEach(delegate (ActionTreeObject pai2)
+            {
+
+                planaccomplishment = (planaccomplishment + (Convert.ToDouble(pai2.A_ACCOMPLISHMENT) / 100) * (Convert.ToDouble(pai2.A_WEIGHT) / 100) * 100);
+
+                string[] addPlanAccomplishment = new string[3];
+                addPlanAccomplishment[0] = planaccomplishment.ToString();
+                addPlanAccomplishment[1] = pai2.A_ID.Substring(0, 4);
+                addPlanAccomplishment[2] = pai2.A_ID.Substring(4, 4);
+
+                updatePlanAccomplishment(addPlanAccomplishment);
+
+
+            });
+
+            ActionTreeItems.ForEach(delegate (ActionTreeObject pai3)
+            {
+
+                pai3.A_E_ACCOMPLISHMENTS = planaccomplishment.ToString();
+
+            });
+
+
+            return ActionTreeItems;
+        }
+
+        public static List<ActionTreeObject> BusinessActionFilteredTree(string[] filteredArray, string Permission, string EmployeeID)
+        {
+            List<ActionTreeObject> ActionTreeFilteredItems = new List<ActionTreeObject>();
+            DataTable data = DataCall.DCActionFilteredTree(filteredArray, Permission, EmployeeID);
+            foreach (DataRow row in data.Rows)
+            {
+
+                string validator = row.ItemArray[1].ToString();
+                if (validator.Length > 1)
+                {
+                    ActionTreeFilteredItems.Add(new ActionTreeObject()
+                    {
+                        A_ID = row["A_ID"].ToString(),
+                        text = row["A_ID"].ToString(),
+                        A_OWNER = row["A_OWNER"].ToString(),
+                        A_SHORT_DESCRIPTION = row["A_SHORT_DESCRIPTION"].ToString(),
+                        A_LONG_DESCRIPTION = row["A_LONG_DESCRIPTION"].ToString(),
+                        A_PLANNED_START = Convert.ToDateTime(row["A_PLANNED_START"].ToString()).ToString("dd/MM/yyyy"),
+                        A_START_DATE = (row["A_START_DATE"].ToString() == "") ? "" : Convert.ToDateTime(row["A_START_DATE"].ToString()).ToString("dd/MM/yyyy HH:mm"),
+                        A_PLANNED_END = Convert.ToDateTime(row["A_PLANNED_END"].ToString()).ToString("dd/MM/yyyy"),
+                        A_FORECAST_ENDDATE = (row["A_FORECAST_ENDDATE"].ToString().Length > 0) ? Convert.ToDateTime(row["A_FORECAST_ENDDATE"].ToString()).ToString("dd/MM/yyyy") : Convert.ToDateTime(row["A_PLANNED_END"].ToString()).ToString("dd/MM/yyyy"),
+                        A_END_DATE = (row["A_END_DATE"].ToString() == "") ? "" : Convert.ToDateTime(row["A_END_DATE"].ToString()).ToString("dd/MM/yyyy HH:mm"),
+                        A_ACCOMPLISHMENT = row["A_ACCOMPLISHMENT"].ToString(),
+                        A_STATUS = row["A_STATUS"].ToString(),
+                        A_STATUS_REPORT = row["A_STATUS_REPORT"].ToString(),
+                        A_WEIGHT = row["A_WEIGHT"].ToString(),
+                        leaf = false,
+                        expanded = true,
+
+                    });
+                }
+                else
+                {
+                    int d = ActionTreeFilteredItems.FindIndex(x => x.A_ID == row["A_PARENT"].ToString());
+                    ActionTreeFilteredItems[d].filhos.Add(new ActionTreeObject()
+                    {
+
+                        A_ID = row["A_ID"].ToString(),
+                        text = row["A_ID"].ToString().Substring(12, 2),
+                        A_OWNER = row["A_OWNER"].ToString(),
+                        A_SHORT_DESCRIPTION = row["A_SHORT_DESCRIPTION"].ToString(),
+                        A_LONG_DESCRIPTION = row["A_LONG_DESCRIPTION"].ToString(),
+                        A_PLANNED_START = Convert.ToDateTime(row["A_PLANNED_START"].ToString()).ToString("dd/MM/yyyy"),
+                        A_START_DATE = (row["A_START_DATE"].ToString() == "") ? "" : Convert.ToDateTime(row["A_START_DATE"].ToString()).ToString("dd/MM/yyyy HH:mm"),
+                        A_PLANNED_END = Convert.ToDateTime(row["A_PLANNED_END"].ToString()).ToString("dd/MM/yyyy"),
+                        A_END_DATE = (row["A_END_DATE"].ToString() == "") ? "" : Convert.ToDateTime(row["A_END_DATE"].ToString()).ToString("dd/MM/yyyy HH:mm"),
+                        A_FORECAST_ENDDATE = (row["A_FORECAST_ENDDATE"].ToString().Length > 0) ? Convert.ToDateTime(row["A_FORECAST_ENDDATE"].ToString()).ToString("dd/MM/yyyy") : Convert.ToDateTime(row["A_PLANNED_END"].ToString()).ToString("dd/MM/yyyy"),
+                        A_STATUS = row["A_STATUS"].ToString(),
+                        A_STATUS_REPORT = row["A_STATUS_REPORT"].ToString(),
+                        A_ACCOMPLISHMENT = row["A_ACCOMPLISHMENT"].ToString(),
+                        A_WEIGHT = row["A_WEIGHT"].ToString(),
+                        A_PARENT = row["A_PARENT"].ToString(),
+                        leaf = true,
+
+                    });
+                }
+
+
+            };
+
+            ActionTreeFilteredItems.ForEach(delegate (ActionTreeObject pai)
+            {
+                double accomplishment = 0;
+                int concludedCount = 0;
+                int planLength = 0;
+                pai.filhos.ForEach(delegate (ActionTreeObject son)
+                {
+
+                    pai.A_ACCOMPLISHMENT = (accomplishment = accomplishment + (Convert.ToDouble(son.A_ACCOMPLISHMENT) / 100) * (Convert.ToDouble(son.A_WEIGHT) / 100) * 100).ToString();
+
+                    planLength++;
+
+                    if (son.A_STATUS == "Closed")
+                    {
+                        concludedCount++;
+                    }
+
+
+                });
+
+                if (pai.A_STATUS != "Concluded" && pai.A_STATUS != "Closed")
+                {
+                    if (planLength == concludedCount && planLength != 0)
+                    {
+                        string[] infoArray = new string[1];
+                        infoArray[0] = pai.A_ID;
+                        DataCall.concludeActionGroup(infoArray);
+                        pai.A_STATUS = "Concluded";
+                    }
+                }
+
+                string[] accomplishmentUpdate = new string[2];
+                accomplishmentUpdate[0] = pai.A_ACCOMPLISHMENT;
+                accomplishmentUpdate[1] = pai.A_ID;
+
+                updateGroupAccomplishment(accomplishmentUpdate);
+
+
+
+            });
+
+            double planaccomplishment = 0;
+
+            ActionTreeFilteredItems.ForEach(delegate (ActionTreeObject pai2)
+            {
+                planaccomplishment = (planaccomplishment + (Convert.ToDouble(pai2.A_ACCOMPLISHMENT) / 100) * (Convert.ToDouble(pai2.A_WEIGHT) / 100) * 100);
+
+                string[] addPlanAccomplishment = new string[3];
+                addPlanAccomplishment[0] = planaccomplishment.ToString();
+                addPlanAccomplishment[1] = pai2.A_ID.Substring(0, 4);
+                addPlanAccomplishment[2] = pai2.A_ID.Substring(4, 4);
+
+                updatePlanAccomplishment(addPlanAccomplishment);
+
+
+            });
+
+            ActionTreeFilteredItems.ForEach(delegate (ActionTreeObject pai3)
+            {
+
+                pai3.A_E_ACCOMPLISHMENTS = planaccomplishment.ToString();
+
+            });
+
+
+            return ActionTreeFilteredItems;
+        }
+
+        public static ActionTreeObject findlocation(List<ActionTreeObject> l, DataRow dr)
+        {
+
+            ActionTreeObject i = l.Find(x => (x.A_ID == dr["A_PARENT"].ToString()));
+            if (i == null)
+            {
+                foreach (ActionTreeObject child in l)
+                {
+                    i = findlocation(child.filhos, dr);
+                    if (i != null)
+                        return i;
+                }
+            }
+            else return i;
+
+
+
+            return i;
+        }
+
+        public static Boolean createActionGroup(string[] actionGroupArray)
+        {
+            if (Convert.ToDateTime(actionGroupArray[5]) > Convert.ToDateTime(actionGroupArray[4])) {
+                Boolean data = DataCall.createActionGroup(actionGroupArray);
+                DataCall.setPermissionlvl3(actionGroupArray);
+                DataCall.removeDuplicates();
+
+                return data;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public static Boolean editActionGroup(string[] editActionGroupArray, string[] actionGroupDataArray)
+        {
+            Boolean data = DataCall.editActionGroup(editActionGroupArray);
+
+            if (actionGroupDataArray[1] != editActionGroupArray[1])
+            {
+                string[] adminUpdate = new String[3];
+
+                adminUpdate[0] = editActionGroupArray[0];
+                adminUpdate[1] = "Action group owner has been updated from " + actionGroupDataArray[6] + " to " + editActionGroupArray[6] + ".";
+                adminUpdate[2] = editActionGroupArray[7];
+
+                DataCall.adminEditUpdate(adminUpdate);
+            }
+
+            if (actionGroupDataArray[2] != editActionGroupArray[2])
+            {
+                string[] adminUpdate = new String[3];
+
+                adminUpdate[0] = editActionGroupArray[0];
+                adminUpdate[1] = "Action group description has been changed.";
+                adminUpdate[2] = editActionGroupArray[7];
+
+                DataCall.adminEditUpdate(adminUpdate);
+            }
+
+            if (actionGroupDataArray[3] != editActionGroupArray[3])
+            {
+                string[] adminUpdate = new String[3];
+
+                adminUpdate[0] = editActionGroupArray[0];
+                adminUpdate[1] = "Action group long description has been changed.";
+                adminUpdate[2] = editActionGroupArray[7];
+
+                DataCall.adminEditUpdate(adminUpdate);
+            }
+
+            if (actionGroupDataArray[4] != Convert.ToDateTime(editActionGroupArray[4]).ToString("dd/MM/yyyy"))
+            {
+                string[] adminUpdate = new String[3];
+
+                adminUpdate[0] = editActionGroupArray[0];
+                adminUpdate[1] = adminUpdate[1] = "Action group start date has been changed from " + actionGroupDataArray[4]+ " to " + Convert.ToDateTime(editActionGroupArray[4]).ToString("dd/MM/yyyy") + ".";
+                adminUpdate[2] = editActionGroupArray[7];
+
+                DataCall.adminEditUpdate(adminUpdate);
+            }
+
+            if (actionGroupDataArray[5] != Convert.ToDateTime(editActionGroupArray[5]).ToString("dd/MM/yyyy"))
+            {
+                string[] adminUpdate = new String[3];
+
+                adminUpdate[0] = editActionGroupArray[0];
+                adminUpdate[1] = "Action group end date has been forecasted from " + actionGroupDataArray[5] + " to " + Convert.ToDateTime(editActionGroupArray[5]).ToString("dd/MM/yyyy") + ".";
+                adminUpdate[2] = editActionGroupArray[7];
+
+                DataCall.adminEditUpdate(adminUpdate);
+            }
+
+            return data;
+        }
+
+        public static Boolean createAction(string[] actionArray)
+        {
+            if (Convert.ToDateTime(actionArray[5]) > Convert.ToDateTime(actionArray[4]))
+            {
+                Boolean data = DataCall.createAction(actionArray);
+                DataCall.setPermissionlvl4(actionArray);
+                DataCall.removeDuplicates();
+
+                return data;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public static Boolean editAction(string[] editActionArray, string[] actionDataArray)
+        {
+            Boolean data = DataCall.editAction(editActionArray);
+
+            if(actionDataArray[1] != editActionArray[1])
+            {
+                string[] adminUpdate = new String[3];
+
+                adminUpdate[0] = editActionArray[0];
+                adminUpdate[1] = "Action owner has been updated from " + actionDataArray[6] + " to " + editActionArray[6] + ".";
+                adminUpdate[2] = editActionArray[7];
+
+                DataCall.adminEditUpdate(adminUpdate);
+            }
+
+            if (actionDataArray[2] != editActionArray[2])
+            {
+                string[] adminUpdate = new String[3];
+
+                adminUpdate[0] = editActionArray[0];
+                adminUpdate[1] = "Action description has been changed.";
+                adminUpdate[2] = editActionArray[7];
+
+                DataCall.adminEditUpdate(adminUpdate);
+            }
+
+            if (actionDataArray[3] != editActionArray[3])
+            {
+                string[] adminUpdate = new String[3];
+
+                adminUpdate[0] = editActionArray[0];
+                adminUpdate[1] = "Action long description has been changed.";
+                adminUpdate[2] = editActionArray[7];
+
+                DataCall.adminEditUpdate(adminUpdate);
+            }
+
+            if (actionDataArray[4] != Convert.ToDateTime(editActionArray[4]).ToString("dd/MM/yyyy"))
+            {
+                string[] adminUpdate = new String[3];
+                
+                adminUpdate[0] = editActionArray[0];
+                adminUpdate[1] = adminUpdate[1] = "Action start date has been changed from " + actionDataArray[4] + " to " + Convert.ToDateTime(editActionArray[4]).ToString("dd/MM/yyyy") + ".";
+                adminUpdate[2] = editActionArray[7];
+
+                DataCall.adminEditUpdate(adminUpdate);
+            }
+
+            if (actionDataArray[5] != Convert.ToDateTime(editActionArray[5]).ToString("dd/MM/yyyy"))
+            {
+                string[] adminUpdate = new String[3];
+
+                adminUpdate[0] = editActionArray[0];
+                adminUpdate[1] = "Action end date has been forecasted from " + actionDataArray[5] + " to " + Convert.ToDateTime(editActionArray[5]).ToString("dd/MM/yyyy") + ".";
+                adminUpdate[2] = editActionArray[7];
+
+                DataCall.adminEditUpdate(adminUpdate);
+            }
+
+            return data;
+        }
+
+        public static Boolean deleteAction(string[] deleteArray)
+        {
+            Boolean data = DataCall.deleteAction(deleteArray);
+
+            return data;
+        }
+
+        public static Boolean deleteActionGroup(string[] deleteGroupArray)
+        {
+            Boolean data = DataCall.deleteActionGroup(deleteGroupArray);
+
+            return data;
+        }
+
+        public static List<LastUpdateObject> getLastUpdateData(string A_ID)
+        {
+
+            List<LastUpdateObject> LastUpdateItems = new List<LastUpdateObject>();
+            DataTable data = DataCall.DCLastUpdateData(A_ID);
+
+            if (data.Rows.Count != 0)
+            {
+                data.DefaultView.Sort = "LU_ACCOMPLISHMENT desc";
+                data = data.DefaultView.ToTable();
+            }
+
+            foreach (DataRow row in data.Rows)
+            {
+                LastUpdateItems.Add(new LastUpdateObject()
+                {
+                    LU_A_ID = row["LU_A_ID"].ToString(),
+                    LAST_UPDATE = row["LAST_UPDATE"].ToString(),
+                    LAST_UPDATE_DATE = Convert.ToDateTime(row["LAST_UPDATE_DATE"].ToString()).ToString("dd/MM/yyyy HH:mm"),
+                    LU_ACCOMPLISHMENT = row["LU_ACCOMPLISHMENT"].ToString(),
+                    UPDATE_OWNER = row["UPDATE_OWNER"].ToString(),
+
+                });
+            }
+            return LastUpdateItems;
+
+        }
+
+        public static Boolean closeAction(string[] closeActionArray)
+        {
+
+            Boolean data = DataCall.closeAction(closeActionArray);
+
+            return data;
+        }
+
+        public static Boolean updateGroupAccomplishment(string[] accomplishmentUpdate)
+        {
+            Boolean data = DataCall.updateGroupAccomplishment(accomplishmentUpdate);
+
+            return data;
+        }
+
+        public static Boolean updatePlanAccomplishment(string[] addPlanAccomplishment)
+        {
+            Boolean data = DataCall.updatePlanAccomplishment(addPlanAccomplishment);
+
+            return data;
+        }
+
+        public static Boolean draftStatus(string[] draftArray)
+        {
+            Boolean data = DataCall.draftStatus(draftArray);
+
+            return data;
+        }
+
+        public static Boolean startActionStatus(string[] startActionArray)
+        {
+            Boolean data = DataCall.startActionStatus(startActionArray);
+
+            return data;
+        }
+
+        public static Boolean updateAction(string[] addUpdateArray)
+        {
+            string[] addFinalUpdateArray = new String[4];
+            addFinalUpdateArray[0] = addUpdateArray[0];
+            addFinalUpdateArray[1] = addUpdateArray[1];
+            addFinalUpdateArray[2] = addUpdateArray[2];
+            addFinalUpdateArray[3] = addUpdateArray[3];
+            Boolean data = DataCall.updateAction(addFinalUpdateArray);
+
+            if(addUpdateArray[2].ToString() != "") { 
+
+            Boolean data1 = DataCall.updateActionAccomplishment(addUpdateArray);
+
+            }
+            return data;
+        }
+
+        public static Boolean denyAction(string[] denyArray)
+        {
+            Boolean data = DataCall.denyAction(denyArray);
+
+            return data;
+        }
+
+        public static List<ActionTreeObject> getActionsforWeight(string[] actionInfoArray)
+        {
+            List<ActionTreeObject> ActionGroupItems = new List<ActionTreeObject>();
+
+                DataTable data = DataCall.getActionGroupSons(actionInfoArray);
+                foreach (DataRow row in data.Rows)
+                {
+                    ActionGroupItems.Add(new ActionTreeObject()
+                    {
+                        A_ID = row["A_ID"].ToString(),
+                        A_SHORT_DESCRIPTION = row["A_SHORT_DESCRIPTION"].ToString(),
+                        A_WEIGHT = row["A_WEIGHT"].ToString(),
+                    });
+                }
+                return ActionGroupItems;         
+          
+        }
+
+        public static Boolean updateWeights(string[] weightArray)
+        {
+
+            try
+            {
+                for (int i = 0; i < weightArray.Length; i++)
+                {
+                    string beforesplit = weightArray[i];
+                    string[] weightFinalArray = beforesplit.Split(',');
+                    DataCall.updateWeights(weightFinalArray);
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+
+        }
+
+        public static Boolean addAttachment(string strTemporaryFileNameAndPath, string actionID)
+        {
+            
+            string[] splitter = strTemporaryFileNameAndPath.Split('\\');
+            string fileName = splitter.Last();
+            Boolean data = DataCall.addAttachment(strTemporaryFileNameAndPath, actionID, fileName);
+            return data;
+        }
+
+        public static List<PathObject> getAttachments(string A_ID)
+        {
+            List<PathObject> attachmentItems = new List<PathObject>();
+
+            DataTable data = DataCall.getAttachments(A_ID);
+            foreach (DataRow row in data.Rows)
+            {
+                attachmentItems.Add(new PathObject()
+                {
+                    A_ID = row["A_ID"].ToString(),
+                    PATH = row["PATH"].ToString(),
+                    NAME = row["NAME"].ToString(),
+                });
+            }
+            return attachmentItems;
+
+        }
+
+        public static Boolean RemoveAttachments(string[] infoArray)
+        {
+            foreach (string attachment in infoArray)
+            {
+                string[] files = attachment.Split(';');
+
+                DataCall.removeAttachment(files);
+                
+            }
+            //foreach (FileName) {
+            //    Boolean data = DataCall.removeAttachment(FileName);
+            //    return data;
+            //}
+            //return true;
+            return true;
+        }
+
+
+    }
+}
