@@ -1,0 +1,34 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace BusinessObjectLibrary
+{
+    public class EventObject
+    {
+        public string ID_CATEGORY { get; set; }
+        public string C_DESC { get; set; }
+        public string C_OWNER { get; set; }
+        public string ID { get; set; }
+        public string ID_EVENT { get; set; }
+        public string E_OWNER { get; set; }
+        public string E_SHORTDESCRIPTION { get; set; }
+        public string E_LONGDESCRIPTION { get; set; }
+        public string E_CATEGORYNAME { get; set; }
+        public string E_ACCOMPLISHMENT { get; set; }
+        public string E_START_DATE { get; set; }
+        public string E_PLANNED_END { get; set; }
+        public string E_FORECAST_ENDDATE { get; set; }
+        public string text { get; set; } // Tree Model parameter
+        public string HASCHILD { get; set; }
+        public bool leaf { get; set; }
+        public List<EventObject> filhos { get; set; }
+        public bool expanded { get; set; }
+        public EventObject()
+        {
+            this.filhos = new List<EventObject>();
+        }
+    }
+}

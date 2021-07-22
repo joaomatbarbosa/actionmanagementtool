@@ -1,0 +1,17 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace BusinessObjectLibrary
+{
+    public class LastUpdateObject
+    {
+        public string LU_A_ID { get; set; }
+        public string LAST_UPDATE { get; set; }
+        public string LAST_UPDATE_DATE { get; set; }
+        public string LU_ACCOMPLISHMENT { get; set; }
+        public string UPDATE_OWNER { get; set; }
+    }
+}

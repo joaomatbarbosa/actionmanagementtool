@@ -1,0 +1,15 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace BusinessObjectLibrary
+{
+    public class ADObject
+    {
+        public string DISPLAYNAME { get; set; }
+        public string EMPLOYEEID { get; set; }
+        public string SAMACCOUNTNAME { get; set; }
+    }
+}
