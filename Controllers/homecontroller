@@ -1,0 +1,213 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using UtilitiesLibrary;
+using BusinessObjectLibrary;
+using System.Configuration;
+using ACTIONTOOL.Models;
+
+namespace ACTIONTOOL.Controllers
+{
+    public class HomeController : Controller
+    {
+        public ActionResult Home()
+        {
+            ViewBag.Permission = HttpContext.Session["Permission"].ToString();
+            ViewBag.DisplayName = HttpContext.Session["DisplayName"].ToString();
+            ViewBag.EmployeeID = HttpContext.Session["EmployeeID"].ToString();
+            ViewBag.getEventTreeItems = "/Home/getEventTreeItems";
+            ViewBag.createEvent = "/Home/createEvent";
+            ViewBag.deleteEvent = "/Home/deleteEvent";
+            ViewBag.editEvent = "/Home/editEvent";
+            ViewBag.createCategory = "/Home/createCategory";
+            ViewBag.deleteCategory = "/Home/deleteCategory";
+            ViewBag.ActionPanel = "/Action/ActionPanel";
+            ViewBag.ActiveDirectory = "/Home/ActiveDirectory";
+            ViewBag.getEventSonsWeight = "/Home/getEventSonsWeight";
+            ViewBag.updateWeights = "/Action/updateWeights"; 
+            ViewBag.getActionTreeFilteredItems = "/Action/getActionTreeFilteredItems";
+            ViewBag.getActionTreeItems = "/Action/getActionTreeItems";
+
+            return View();
+        }
+
+        public JsonResult getEventTreeItems()
+        {
+            string strErr = string.Empty;
+            List<EventObject> pData = null;
+            string Permission = HttpContext.Session["Permission"].ToString();
+            string EmployeeID = HttpContext.Session["EmployeeID"].ToString();
+        
+            try
+            {
+                pData = DataFlow.getEventTreeItems(ref strErr, Permission, EmployeeID);
+            }
+            catch (Exception ex)
+             {
+                strErr = ex.Message;
+            }
+
+            if (pData == null)
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = pData }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult createEvent(string[] newEventArray)
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = DataFlow.createEvent(newEventArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult deleteEvent(string[] deleteArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = DataFlow.deleteEvent(deleteArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult editEvent(string[] editArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = DataFlow.editEvent(editArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult createCategory(string[] createCategoryArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = DataFlow.createCategory(ref strErr, createCategoryArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = "Category ID already exists" }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult deleteCategory(string[] deleteCategoryArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = DataFlow.deleteCategory(deleteCategoryArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult ActiveDirectory(string query)
+
+        {
+            string strErr = string.Empty;
+            List<ADObject> pData = null;
+
+            try
+            {
+                pData = DataFlow.getADItems(ref strErr, query);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (pData == null)
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = pData }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult getEventSonsWeight(string[] eventInfoArray)
+
+        {
+            string strErr = string.Empty;
+            List<ActionTreeObject> pData = null;
+
+            try
+            {
+                pData = DataFlow.getEventSonsWeight(eventInfoArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (pData == null)
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = pData }, JsonRequestBehavior.AllowGet);
+        }
+
+    }
+
+
+
+}
