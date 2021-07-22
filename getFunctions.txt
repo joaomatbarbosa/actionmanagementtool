@@ -1,0 +1,220 @@
+//==============================GET PLAN FUNCTIONS==============================//
+
+function getCategoryText() {
+    return Ext.getCmp('treePanel').getSelection()[0].get('text')
+}
+
+function getCategoryID() {
+    return Ext.getCmp('treePanel').getSelection()[0].get('ID_CATEGORY')
+}
+
+function getID_E() {
+    return Ext.getCmp('treePanel').getSelection()[0].get('ID')
+}
+
+function getHasChild() {
+    return Ext.getCmp('treePanel').getSelection()[0].get('HASCHILD')
+}
+
+function getEventID() {
+    return Ext.getCmp('treePanel').getSelection()[0].get('ID_EVENT')
+}
+
+function getEventOwnerID() {
+
+    var e_owner = Ext.getCmp('treePanel').getSelection()[0].get('E_OWNER');
+    ADStore.filter('EMPLOYEEID', e_owner)
+    var EMPLOYEEID = ADStore.getData().items[0].data.EMPLOYEEID;
+    ADStore.clearFilter()
+    return EMPLOYEEID
+}
+
+function getEventOwner() {
+    
+    var e_owner = Ext.getCmp('treePanel').getSelection()[0].get('E_OWNER');
+    ADStore.filter('EMPLOYEEID', e_owner)
+    var displayName = ADStore.getData().items[0].data.DISPLAYNAME;
+    ADStore.clearFilter()
+    return displayName
+}
+
+function getEventShortDesc() {
+    return Ext.getCmp('treePanel').getSelection()[0].get('E_SHORTDESCRIPTION')
+}
+
+function getEventLongDesc() {
+    return Ext.getCmp('treePanel').getSelection()[0].get('E_LONGDESCRIPTION')
+}
+
+function getEventCategoryName() {
+    return Ext.getCmp('treePanel').getSelection()[0].get('E_CATEGORYNAME')
+}
+
+function getEventPED() {
+    return Ext.Date.parse(Ext.getCmp('treePanel').getSelection()[0].get('E_PLANNED_END'), 'd/m/Y');
+}
+
+function getEventPFED() {
+    //debugger;
+    return Ext.Date.parse(Ext.getCmp('treePanel').getSelection()[0].get('E_FORECAST_ENDDATE'), 'd/m/Y');
+}
+
+//==============================GET ACTION FUNCTIONS==============================//
+
+function getActionID() {
+    return Ext.getCmp('treePanel1').getSelection()[0].get('A_ID')
+}
+
+function getActionOwner() {
+    debugger;
+    ADStore.clearFilter()
+    var a_owner = Ext.getCmp('treePanel1').getSelection()[0].get('A_OWNER');
+    ADStore.filter('EMPLOYEEID', a_owner)
+    var displayName = ADStore.getData().items[0].data.DISPLAYNAME;
+    ADStore.clearFilter()
+    return displayName
+}
+
+function getActionPSD() {
+    return Ext.Date.parse(Ext.getCmp('treePanel1').getSelection()[0].get('A_PLANNED_START'), 'd/m/Y');
+}
+
+function getActionPED() {
+    return Ext.Date.parse(Ext.getCmp('treePanel1').getSelection()[0].get('A_PLANNED_END'), 'd/m/Y');
+}
+
+function getActionPFED() {
+    return Ext.Date.parse(Ext.getCmp('treePanel1').getSelection()[0].get('A_FORECAST_ENDDATE'), 'd/m/Y');
+}
+
+function getActionSD() {
+    return Ext.getCmp('treePanel1').getSelection()[0].get('A_SHORT_DESCRIPTION')
+}
+
+function getActionLD() {
+    return Ext.getCmp('treePanel1').getSelection()[0].get('A_LONG_DESCRIPTION')
+}
+
+function getActionStatus() {
+    return Ext.getCmp('treePanel1').getSelection()[0].get('A_STATUS')
+}
+
+
+//==============================SET FUNCTIONS==============================//
+
+function setValueEventInformation(record) {
+    //debugger;
+    ADStore.filter('EMPLOYEEID', record.data.E_OWNER)
+    Ext.getCmp('eventOwnerDisplay').setValue(ADStore.getData().items[0].data.DISPLAYNAME)
+    ADStore.clearFilter()
+    Ext.getCmp('eventCodeDisplay').setValue(record.data.ID_EVENT)
+    Ext.getCmp('eventAccomplishmentDisplay').updateProgress(record.data.E_ACCOMPLISHMENT / 100, 'Event Accomplishment: ' + record.data.E_ACCOMPLISHMENT + ' %' )
+    Ext.getCmp('eventShortDescriptionDisplay').setValue(record.data.E_SHORTDESCRIPTION)
+    Ext.getCmp('eventLongDescriptionDisplay').setValue(record.data.E_LONGDESCRIPTION)
+    Ext.getCmp('eventStartDateDisplay').setValue(record.data.E_START_DATE)
+    Ext.getCmp('eventPlannedEndDateDisplay').setValue((record.data.E_FORECAST_ENDDATE.toString.length == 0) ? record.data.E_PLANNED_END : record.data.E_FORECAST_ENDDATE)
+
+}
+
+
+function setValueAction() {
+
+    Ext.getCmp('dfLD').setValue(Ext.getCmp('treePanel1').getSelection()[0].get('A_LONG_DESCRIPTION'))
+
+}
+
+function updateEventInformation() {
+    debugger;
+    Ext.getCmp('eventinformationowner').setValue(treeStore.getData().items[0].data.E_OWNER)
+    Ext.getCmp('eventinformationSD').setValue(treeStore.getData().items[0].data.E_SHORTDESCRIPTION)
+    Ext.getCmp('eventinformationLD').setValue(treeStore.getData().items[0].data.E_LONGDESCRIPTION)
+}
+
+function remove() {
+    var panelCenter = Ext.getCmp('centerloader');
+    panelCenter.items.each(function (item, index, len) {
+        this.remove(item, true);
+    }, panelCenter);
+}
+
+
+//==============================PERMISSION FUNCTIONS==============================//
+
+function setEventToolbarButtonPermission1() {
+
+    Ext.getCmp('categorybutton').setHidden(false);
+    Ext.getCmp('deletecategorybutton').setHidden(false);
+    Ext.getCmp('createEventButton').setHidden(false);
+    Ext.getCmp('editEventButton').setHidden(false);
+    Ext.getCmp('deleteEventButton').setHidden(false);
+    Ext.getCmp('archiveEventButton').setHidden(false);
+    Ext.getCmp('manageweighteventbutton').setHidden(false);
+
+}
+
+function setEventToolbarButtonPermission2() {
+
+    Ext.getCmp('eventtoolbar').setVisible(true)
+    Ext.getCmp('categorybutton').setHidden(true);
+    Ext.getCmp('deletecategorybutton').setHidden(true);
+    Ext.getCmp('createEventButton').setHidden(false);
+    Ext.getCmp('editEventButton').setHidden(false);
+    Ext.getCmp('deleteEventButton').setHidden(false);
+    Ext.getCmp('archiveEventButton').setHidden(false);
+    Ext.getCmp('manageweighteventbutton').setHidden(false);
+    userPermission = 2;
+
+}
+
+function setEventToolbarButtonPermission2plus() {
+
+    Ext.getCmp('eventtoolbar').setVisible(true)
+    Ext.getCmp('categorybutton').setHidden(true);
+    Ext.getCmp('deletecategorybutton').setHidden(true);
+    Ext.getCmp('createEventButton').setHidden(true);
+    Ext.getCmp('editEventButton').setHidden(false);
+    Ext.getCmp('deleteEventButton').setHidden(false);
+    Ext.getCmp('archiveEventButton').setHidden(true);
+    Ext.getCmp('manageweighteventbutton').setHidden(false);
+    userPermission = 2;
+
+}
+
+function setEventToolbarButtonPermissionUsers() {
+    //debugger;
+    Ext.getCmp('eventtoolbar').setVisible(false);
+    userPermission = 4;
+
+}
+
+function setToolBarButtonsPermissions3() {
+
+    userPermission = 3;
+    Ext.getCmp('newactionbutton').setHidden(false);
+    Ext.getCmp('deleteactionbutton').setHidden(false);
+    Ext.getCmp('manageweightbutton').setHidden(false);
+    Ext.getCmp('editactiongroupbutton').setText('Manage Plan');
+    Ext.getCmp('editactionbutton').setText('Manage Action');
+}
+
+function setToolBarButtonsPermissions4() {
+    //debugger;
+    userPermission = 4;
+    Ext.getCmp('newactionbutton').setHidden(true);
+    Ext.getCmp('deleteactionbutton').setHidden(true);
+    Ext.getCmp('manageweightbutton').setHidden(true);
+    Ext.getCmp('editactiongroupbutton').setText('Plan Information');
+    Ext.getCmp('editactionbutton').setText('Manage Action');
+    
+}
+
+function setToolBarButtonsPermissionsViewMode() {
+    //debugger;
+    userPermission = 5;
+    Ext.getCmp('newactionbutton').setHidden(true);
+    Ext.getCmp('deleteactionbutton').setHidden(true);
+    Ext.getCmp('manageweightbutton').setHidden(true);
+    Ext.getCmp('editactiongroupbutton').setText('Action Group Information');
+    Ext.getCmp('editactionbutton').setText('Action Information');
+
+}

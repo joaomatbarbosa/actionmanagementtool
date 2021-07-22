@@ -1,0 +1,662 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<xml>
+	<query id="CategoryTree">
+
+		SELECT * FROM APTool.category
+
+	</query>
+
+	<query id="CategoryTreeUsers">
+		
+		
+		SELECT a.* FROM APTOOL.Category a , (SELECT distinct SUBSTR(A_ID, 0, 4) cat FROM APTOOL.Action
+
+		WHERE A_OWNER = '{1}') b
+
+		WHERE a.ID_CATEGORY = b.cat
+
+		UNION
+
+		SELECT *FROM APTOOL.Category WHERE C_OWNER = '{1}'
+        
+        UNION
+        
+        SELECT a.* FROM APTOOL.Category a , (SELECT distinct E_ID_CATEGORY cate FROM APTOOL.Event
+
+		WHERE E_OWNER = '{1}') b
+
+		WHERE a.ID_CATEGORY = b.cate
+
+	</query>
+	
+	<query id="TreeNavi">
+
+		select distinct ID_CATEGORY, c_desc, e_owner, e_shortdescription, e_longdescription, e_accomplishment, E_START_DATE, E_PLANNED_END, E_FORECAST_ENDDATE, ID_EVENT, A_ID_E from (select category.ID_CATEGORY ID_CATEGORY , category.c_desc c_desc, event.e_id ID_EVENT, event.e_owner, event.e_shortdescription, event.e_longdescription, event.e_accomplishment, event.E_START_DATE, event.E_FORECAST_ENDDATE, event.E_PLANNED_END from APTool.event, APTool.category
+
+		where category.id_category=event.e_id_category order by ID_CATEGORY) a , APTool.action b where concat(a.ID_CATEGORY , a.ID_EVENT) = b.A_ID_E(+)
+
+		ORDER BY ID_EVENT ASC
+
+	</query>
+
+	<query id="PlanTreeUsers">
+
+
+		SELECT DISTINCT
+		id_category,
+		c_desc,
+		e_owner,
+		e_shortdescription,
+		e_longdescription,
+		e_accomplishment,
+		e_start_date,
+		e_planned_end,
+		e_forecast_enddate,
+		id_event,
+		a_id_e
+		FROM
+		(
+		SELECT
+		x.*
+		FROM
+		(
+		SELECT DISTINCT
+		id_category,
+		c_desc,
+		e_owner,
+		e_shortdescription,
+		e_longdescription,
+		e_accomplishment,
+		e_start_date,
+		e_planned_end,
+		e_forecast_enddate,
+		id_event,
+		a_id_e
+		FROM
+		(
+		SELECT
+		category.id_category    id_category,
+		category.c_desc         c_desc,
+		event.e_id              id_event,
+		event.e_owner,
+		event.e_shortdescription,
+		event.e_longdescription,
+		event.e_accomplishment,
+		event.e_start_date,
+		event.e_forecast_enddate,
+		event.e_planned_end
+		FROM
+		aptool.event,
+		aptool.category
+		WHERE
+		category.id_category = event.e_id_category
+		ORDER BY
+		id_category
+		)                a,
+		aptool.action    b
+		WHERE
+		concat(a.id_category, a.id_event) = b.a_id_e (+)
+		ORDER BY
+		id_event ASC
+		)  x,
+		(
+		SELECT DISTINCT
+		substr(a_id, 0, 8) event
+		FROM
+		aptool.action
+		WHERE
+		a_owner = '{1}'
+		)  y
+		WHERE
+		x.a_id_e = y.event
+		UNION
+		SELECT
+		d.*
+		FROM
+		(
+		SELECT DISTINCT
+		id_category,
+		c_desc,
+		e_owner,
+		e_shortdescription,
+		e_longdescription,
+		e_accomplishment,
+		e_start_date,
+		e_planned_end,
+		e_forecast_enddate,
+		id_event,
+		a_id_e
+		FROM
+		(
+		SELECT
+		category.id_category    id_category,
+		category.c_desc         c_desc,
+		event.e_id              id_event,
+		event.e_owner,
+		event.e_shortdescription,
+		event.e_longdescription,
+		event.e_accomplishment,
+		event.e_start_date,
+		event.e_forecast_enddate,
+		event.e_planned_end
+		FROM
+		aptool.event,
+		aptool.category
+		WHERE
+		category.id_category = event.e_id_category
+		ORDER BY
+		id_category
+		)                a,
+		aptool.action    b
+		WHERE
+		concat(a.id_category, a.id_event) = b.a_id_e (+)
+		ORDER BY
+		id_event ASC
+		)  d,
+		(
+		SELECT
+		id_category idcat
+		FROM
+		aptool.category
+		WHERE
+		c_owner = '{1}'
+		)  p
+		WHERE
+		d.id_category = p.idcat
+		UNION
+		SELECT
+		*
+		FROM
+		(
+		SELECT --DISTINCT
+		id_category,
+		c_desc,
+		e_owner,
+		e_shortdescription,
+		e_longdescription,
+		e_accomplishment,
+		e_start_date,
+		e_planned_end,
+		e_forecast_enddate,
+		id_event,
+		id_category || id_event a_id_e
+		FROM
+		(
+		SELECT
+		category.id_category    id_category,
+		category.c_desc         c_desc,
+		event.e_id              id_event,
+		event.e_owner,
+		event.e_shortdescription,
+		event.e_longdescription,
+		event.e_accomplishment,
+		event.e_start_date,
+		event.e_forecast_enddate,
+		event.e_planned_end
+		FROM
+		aptool.event,
+		aptool.category
+		WHERE
+		category.id_category = event.e_id_category
+		ORDER BY
+		id_category
+		) a
+		WHERE
+		e_owner = '{1}'
+		)
+		)
+
+	</query>
+	
+	<query id="insertEvent">
+
+		INSERT INTO APTool.Event
+
+		(E_ID_CATEGORY, E_OWNER, E_SHORTDESCRIPTION, E_LONGDESCRIPTION, E_ID, E_PLANNED_END, E_START_DATE)
+
+		VALUES ('{0}', '{1}', '{2}', '{3}', (SELECT TRIM(to_char(NVL((MAX(E_ID) +1), 1),'0000')) FROM APTool.event WHERE E_ID_CATEGORY = '{0}'), TO_DATE('{4}', 'DD-MON-YY'), SYSDATE)
+
+	</query>
+	
+	<query id="deleteEvent">
+
+		DELETE APTool.Event WHERE E_ID_CATEGORY ='{0}' AND E_ID = '{1}'
+		
+	</query>
+	
+	<query id="editEvent">
+
+		UPDATE APTool.Event
+		SET E_OWNER = '{2}', E_SHORTDESCRIPTION = '{3}', E_LONGDESCRIPTION = '{4}', E_FORECAST_ENDDATE = TO_DATE('{5}', 'DD-MON-YY')
+		WHERE E_ID_CATEGORY ='{0}' AND E_ID = '{1}'
+
+	</query>
+
+	<query id="addCategory">
+
+		INSERT INTO APTool.Category
+		(ID_CATEGORY, C_DESC, C_OWNER)
+		VALUES ('{0}', '{1}', '{2}')
+
+	</query>
+
+	<query id="getCategories">
+
+		SELECT *FROM APTool.Category
+		WHERE ID_CATEGORY = '{0}'
+
+	</query>
+
+	<query id="deleteCategory">
+
+		DELETE APTool.Category WHERE ID_CATEGORY ='{0}'
+
+	</query>
+
+	<query id="ActionTree2">
+
+		SELECT a_id, a_id_e, a_owner, a_short_description, a_long_description, a_planned_start, a_start_date, a_planned_end, a_end_date, a_status, a_parent, a_status_report, a_weight, a_accomplishment, a_forecast_enddate,
+		(select count( A_parent )from  APTOOL.ACTION
+
+		WHERE A_ID LIKE '{0}%' and a_parent=b.a_parent) soncount
+
+		FROM APTOOL.ACTION b
+
+		WHERE A_ID LIKE '{0}%'
+		ORDER BY A_ID ASC
+
+	</query>
+
+	<query id="ActionTree">
+
+		SELECT *FROM APTOOL.Action
+		WHERE A_ID LIKE '{0}%'
+		ORDER BY A_ID ASC
+
+	</query>
+
+	<query id="ActionTreeMyActions">
+
+		SELECT *FROM(SELECT *FROM APTOOL.Action
+		WHERE A_ID LIKE '{0}%'
+		ORDER BY A_ID ASC) WHERE A_OWNER = '{1}'
+
+		UNION
+		Select b.* FROM
+		(select * from APTOOL.ACTION WHERE A_ID LIKE '{0}%') b,
+		(SELECT distinct A_PARENT parentAction FROM APTool.Action WHERE A_OWNER = '{1}') a
+		where b.A_ID = a.parentAction
+
+		UNION
+		Select c.* FROM
+		(select * from APTOOL.ACTION WHERE A_ID LIKE '{0}%') c,
+		(SELECT distinct A_ID FROM APTool.Action WHERE A_OWNER = '{1}' AND A_PARENT is null) d
+		where c.A_PARENT = d.A_ID
+
+	</query>
+
+	<query id="ActionTreeOnGoingActions">
+
+		SELECT *FROM(SELECT *FROM APTOOL.Action
+		WHERE A_ID LIKE '{0}%'
+		ORDER BY A_ID ASC) WHERE A_STATUS = 'On Going'
+
+		UNION
+		Select b.* FROM
+		(select * from APTOOL.ACTION WHERE A_ID LIKE '{0}%') b,
+		(SELECT distinct A_PARENT parentAction FROM APTool.Action WHERE A_STATUS = 'On Going') a
+		where b.A_ID = a.parentAction
+
+	</query>
+
+	<query id="ActionTreeClosedActions">
+
+		SELECT *FROM(SELECT *FROM APTOOL.Action
+		WHERE A_ID LIKE '{0}%'
+		ORDER BY A_ID ASC) WHERE A_STATUS = 'Closed'
+
+		UNION
+		Select b.* FROM
+		(select * from APTOOL.ACTION WHERE A_ID LIKE '{0}%') b,
+		(SELECT distinct A_PARENT parentAction FROM APTool.Action WHERE A_STATUS = 'Closed') a
+		where b.A_ID = a.parentAction
+
+	</query>
+
+	<query id="ActionTreeDelayedActions">
+
+		SELECT *FROM APTOOL.ACTION
+		WHERE SYSDATE > (CASE
+
+		WHEN  A_FORECAST_ENDDATE is not null THEN A_FORECAST_ENDDATE
+
+		ELSE A_PLANNED_END
+
+		END)
+
+		UNION
+
+		Select b.* FROM
+		(select * from APTOOL.ACTION WHERE A_ID LIKE '{0}%') b,
+		(SELECT distinct A_PARENT parentAction FROM APTool.Action WHERE SYSDATE > (CASE
+		WHEN  A_FORECAST_ENDDATE is not null THEN A_FORECAST_ENDDATE
+		ELSE A_PLANNED_END
+		END)) a
+		where b.A_ID = a.parentAction
+
+	</query>
+
+	<query id="ActionTreeLvl3">
+
+		SELECT *FROM(SELECT a_id, a_id_p, a_owner, a_short_description, a_long_description, a_planned_start, a_start_date, a_planned_end, a_end_date, a_status, a_parent, a_status_report, a_weight, a_accomplishment, a_forecast_enddate,
+		(select count( A_parent )from  APTOOL.ACTION
+
+		WHERE A_ID LIKE '{0}%' and a_parent=b.a_parent) soncount
+
+		FROM APTOOL.ACTION b
+
+		WHERE A_ID LIKE '{0}%'
+		ORDER BY A_ID ASC) WHERE A_OWNER = '{2}'
+
+		UNION
+
+		select b.*, 0 soncount
+		FROM
+		(select * from APTOOL.ACTION WHERE A_ID LIKE '{0}%') b,
+		(SELECT distinct A_PARENT parentAction FROM APTOOL.Action WHERE A_OWNER = '{2}') a
+		where b.A_ID = a.parentAction
+
+	</query>
+
+	<query id="ActionTreeLvl4">
+
+		SELECT *FROM(SELECT a_id, a_id_p, a_owner, a_short_description, a_long_description, a_planned_start, a_start_date, a_planned_end, a_end_date, a_status, a_parent, a_status_report, a_weight, a_accomplishment, a_forecast_enddate,
+		(select count( A_parent )from  APTOOL.ACTION
+
+		WHERE A_ID LIKE '{0}%' and a_parent=b.a_parent) soncount
+
+		FROM APTOOL.ACTION b
+
+		WHERE A_ID LIKE '{0}%'
+		ORDER BY A_ID ASC) WHERE A_OWNER = '{2}'
+
+		UNION
+
+		select b.*, 0 soncount
+		FROM
+		(select * from APTOOL.ACTION WHERE A_ID LIKE '{0}%') b,
+		(SELECT distinct A_PARENT parentAction FROM APTOOL.Action WHERE A_OWNER = '{2}') a
+		where b.A_ID = a.parentAction
+
+	</query>
+
+	<query id="insertActionGroup">
+
+		INSERT INTO APTool.Action
+
+		(A_ID, A_ID_E, A_OWNER, A_SHORT_DESCRIPTION, A_LONG_DESCRIPTION, A_PLANNED_START, A_PLANNED_END, A_STATUS, A_ACCOMPLISHMENT, A_WEIGHT)
+
+		VALUES (CONCAT('{0}-', (select TRIM(to_char(NVL((SUBSTR((MAX(A_ID)),10,11) +1),1), '00')) FROM APTool.action WHERE A_ID_E = '{0}')), '{0}', '{1}', '{2}', '{3}', TO_DATE('{4}', 'DD-MON-YY'), TO_DATE('{5}', 'DD-MON-YY'), 'Assigned', '0', '0')
+
+	</query>
+
+	<query id="editActionGroup">
+
+		UPDATE APTool.Action
+
+		SET A_OWNER = '{1}', A_SHORT_DESCRIPTION = '{2}', A_LONG_DESCRIPTION = '{3}', A_PLANNED_START = TO_DATE('{4}', 'DD-MON-YY'), A_FORECAST_ENDDATE = TO_DATE('{5}', 'DD-MON-YY')
+
+		WHERE A_ID = '{0}'
+	</query>
+
+	<query id="insertAction">
+
+		INSERT INTO APTool.Action
+
+		(A_ID, A_PARENT, A_OWNER, A_SHORT_DESCRIPTION, A_LONG_DESCRIPTION, A_PLANNED_START, A_PLANNED_END, A_STATUS, A_ACCOMPLISHMENT, A_WEIGHT)
+
+		VALUES (CONCAT('{0}-', (select TRIM(to_char(NVL((SUBSTR((MAX(A_ID)),13,14) +1),1), '00')) FROM APTool.action WHERE A_PARENT = '{0}')), '{0}', '{1}', '{2}', '{3}', TO_DATE('{4}', 'DD-MON-YY'), TO_DATE('{5}', 'DD-MON-YY'), 'Assigned', '0', '0')
+	</query>
+
+	<query id="editAction">
+
+		UPDATE APTool.Action
+
+		SET A_OWNER = '{1}', A_SHORT_DESCRIPTION = '{2}', A_LONG_DESCRIPTION = '{3}', A_PLANNED_START = TO_DATE('{4}', 'DD-MON-YY'), A_FORECAST_ENDDATE = TO_DATE('{5}', 'DD-MON-YY')
+
+		WHERE A_ID = '{0}'
+	</query>
+
+	<query id="deleteAction">
+
+		DELETE APTool.Action WHERE A_ID ='{0}'
+
+	</query>
+
+	<query id="insertAdminUpdate">
+
+		INSERT INTO APTOOL.LASTUPDATE
+		
+		(LU_A_ID, LAST_UPDATE, LAST_UPDATE_dATE, UPDATE_OWNER)
+		
+		VALUES ('{0}', '{1}', SYSDATE, '{2}')
+
+	</query>
+
+	<query id="LastUpdateData">
+
+		SELECT *FROM APTOOL.LASTUPDATE
+
+		WHERE LU_A_ID = '{0}'
+		ORDER BY LAST_UPDATE_DATE DESC
+
+	</query>
+
+	<query id="closeAction">
+
+		UPDATE APTOOL.ACTION
+
+		SET A_STATUS = 'Closed', A_END_DATE = SYSDATE
+		WHERE A_ID = '{0}'
+
+	</query>
+
+	<query id="updateAccomplishment">
+
+		UPDATE APTOOL.ACTION
+
+		SET A_ACCOMPLISHMENT = '{0}'
+		WHERE A_ID = '{1}'
+
+	</query>
+
+	<query id="PlanAccomplishment">
+
+		UPDATE APTOOL.PLAN
+
+		SET P_ACCOMPLISHMENT = '{0}'
+		WHERE P_ID_CATEGORY = '{1}' AND P_ID = '{2}'
+
+	</query>
+
+	<query id="changeActionStatusToConcluded">
+
+		UPDATE APTOOL.ACTION
+
+		SET A_STATUS = 'Concluded'
+		WHERE A_ID = '{0}'
+
+	</query>
+
+	<query id="changeActionStatusToAssigned">
+
+		UPDATE APTOOL.ACTION
+
+		SET A_STATUS = 'Assigned'
+		WHERE A_ID = '{0}'
+
+	</query>
+
+	<query id="changeActionStatusToOnGoing">
+
+		UPDATE APTOOL.ACTION
+
+		SET A_STATUS = 'On Going', A_START_DATE = SYSDATE
+		WHERE A_ID = '{0}'
+
+	</query>
+
+	<query id="addUpdateAction">
+
+		INSERT INTO APTOOL.LASTUPDATE
+
+		(LU_A_ID, LAST_UPDATE, LU_ACCOMPLISHMENT, LAST_UPDATE_DATE, UPDATE_OWNER)
+		
+		VALUES ('{0}', '{1}', '{2}', SYSDATE, '{3}')
+
+	</query>
+
+	<query id="UpdateActionAccomplishment">
+
+		UPDATE APTOOL.ACTION
+
+		SET A_STATUS = (CASE {2}
+
+		WHEN 100 THEN 'Concluded'
+
+		ELSE 'On Going'
+
+		END), A_ACCOMPLISHMENT = '{2}'
+
+		WHERE A_ID = '{0}'
+
+	</query>
+
+	<query id="denyAction">
+
+		UPDATE APTOOL.ACTION
+
+		SET A_STATUS = 'Draft'
+
+		WHERE A_ID = '{0}'
+
+	</query>
+
+	<query id="insertPermissionLevel1">
+
+		INSERT INTO APTOOL.PERMISSIONS
+
+		(EMPLOYEEID, PERMISSION_LEVEL)
+
+		VALUES ('{0}', '1')
+
+	</query>
+
+	<query id="insertPermissionLevel2">
+
+		INSERT INTO APTOOL.PERMISSIONS
+
+		(EMPLOYEEID, PERMISSION_LEVEL)
+
+		VALUES ('{0}', '2')
+
+	</query>
+
+	<query id="insertPermissionLevel3">
+
+		INSERT INTO APTOOL.PERMISSIONS
+
+		(EMPLOYEEID, PERMISSION_LEVEL)
+
+		VALUES ('{0}', '3')
+
+	</query>
+
+	<query id="insertPermissionLevel4">
+
+		INSERT INTO APTOOL.PERMISSIONS
+
+		(EMPLOYEEID, PERMISSION_LEVEL)
+
+		VALUES ('{0}', '4')
+
+	</query>
+
+	<query id="getActionGroupSons">
+
+		SELECT *FROM APTOOL.Action
+
+		WHERE A_PARENT = '{0}'
+
+		ORDER BY A_ID ASC
+
+	</query>
+
+	<query id="getEventSons">
+
+		SELECT *FROM APTOOL.Action
+
+		WHERE A_ID_E = '{0}'
+
+		ORDER BY A_ID ASC
+
+	</query>
+
+	<query id="updateWeight">
+
+		UPDATE APTOOL.ACTION
+
+		SET A_WEIGHT = '{1}'
+
+		WHERE A_ID = '{0}'
+	</query>
+
+	<query id="getPermission">
+
+		SELECT *FROM APTOOL.PERMISSIONS
+
+		WHERE EMPLOYEEID = '{0}'
+		
+		ORDER BY PERMISSION_LEVEL DESC
+		
+	</query>
+
+	<query id ="removeDuplicates">
+		
+		DELETE FROM APTool.PERMISSIONS
+		
+		WHERE rowid not in
+		
+		(SELECT MIN(rowid)
+		
+		FROM PERMISSIONS
+		
+		GROUP BY EMPLOYEEID, PERMISSION_LEVEL)
+		
+	</query>
+
+	<query id ="addAttachmentPath">
+
+		INSERT INTO APTOOL.FILES
+
+		(PATH, A_ID, NAME)
+		
+		VALUES('{0}', '{1}', '{2}')
+
+	</query>
+
+	<query id ="getAttachments">
+
+		SELECT *FROM APTOOL.FILES
+
+		WHERE A_ID = '{0}'
+
+	</query>
+
+	<query id ="removeAttachment">
+
+		DELETE APTool.Files WHERE NAME = '{0}' AND A_ID = '{1}'
+
+	</query>
+</xml>

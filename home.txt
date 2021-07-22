@@ -1,0 +1,1302 @@
+@{
+    ViewBag.Title = "Home";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    <text>
+        <script src="~/Scripts/ResizeHelper.js"></script>
+       
+        <script src="~/Functions/getfunctions.js"></script>
+
+    </text>
+}
+
+<script type="text/javascript">
+
+    var eventID = null;
+    var userPermission = '@ViewBag.Permission';
+    var userDisplayName = '@ViewBag.DisplayName';
+    var employeeID = '@ViewBag.EmployeeID';
+    var filterVar = '0';
+
+    
+    Ext.define('M2Go.view.FileDownload', {
+        extend: 'Ext.Component',
+        alias: 'widget.FileDownloader',
+        autoEl: {
+            tag: 'iframe',
+            cls: 'x-hidden',
+            src: Ext.SSL_SECURE_URL
+        },
+        stateful: true,
+        load: function (config) {
+            //debugger;
+            var e = this.getEl();
+            e.dom.src = config.url + (config.params ? '?' + Ext.urlEncode(config.params) : '');
+            e.dom.onload = function () {
+                if (e.dom.contentDocument.body.childNodes[0].wholeText.substring(0, 3) == '404') {
+                    debugger;
+                    var msg = e.dom.contentDocument.body.childNodes[0].wholeText.substring(4);
+                    var dlg = Ext.Msg.show({
+                        title: 'File Download',
+                        msg: msg,
+                        buttons: Ext.Msg.OK,
+                        icon: Ext.MessageBox.ERROR
+                    })
+                }
+            }
+        }
+    });
+
+    //Model
+
+    Ext.define('treeModel', {
+        extend: 'Ext.data.TreeModel',
+        fields: [
+            { name: 'ID_CATEGORY' },
+            //{ name: 'ID_P' },
+            { name: 'text' },
+            { name: 'filhos' },
+            { name: 'leaf'},
+        ]
+    });
+
+    Ext.define('ADModel', {
+        extend: 'Ext.data.Model',
+        fields: [
+            { name: 'DISPLAYNAME' },
+            { name: 'EMPLOYEEID' },
+            { name: 'SAMACCOUNTNAME' },
+        ]
+    });
+
+    Ext.define('filters', {
+        extend: 'Ext.data.Model',
+        fields: [
+            { name: 'name'}
+        ]
+    });
+
+    //Store
+
+    var treeStore = Ext.create('Ext.data.TreeStore', {
+
+            id: 'treeStore',
+            model: 'treeModel',
+            autoLoad: true,
+            proxy: {
+
+                type: 'ajax',
+                actionMethods: {
+                    read: 'POST'
+                },
+                url: '@ViewBag.getEventTreeItems',
+                reader: {
+
+                    type: 'json',
+                    rootProperty: function (data) {
+
+                        // Extract child nodes from the items or children property in the dataset
+                        return data.items || data.filhos;
+                    }
+                },
+            },
+        listeners: {
+            load: function (records, successful, operation, eOpts) {
+
+                Ext.getCmp('deleteEventButton').setDisabled(true)
+                Ext.getCmp('archiveEventButton').setDisabled(true)
+                Ext.getCmp('editEventButton').setDisabled(true)
+                Ext.getCmp('createEventButton').setDisabled(true)
+                Ext.getCmp('deletecategorybutton').setDisabled(true)
+                Ext.getCmp('manageweighteventbutton').setDisabled(true)
+                if (typeof (Ext.getCmp('loadedborder')) != "undefined") {
+
+                    remove();
+                    Ext.getCmp('loadedborder').destroy();
+
+                }
+                Ext.getCmp('eventInformationPanel').setHidden(true)
+            }
+        }
+    });
+
+    var ADStore = Ext.create('Ext.data.Store', {
+
+        id: 'ADStore',
+        model: 'ADModel',
+        autoLoad: true,
+        proxy: {
+
+            type: 'ajax',
+            actionMethods: {
+                read: 'POST'
+            },
+
+            url: '@ViewBag.ActiveDirectory',
+            reader: {
+
+                type: 'json',
+                rootProperty: 'items',
+            },
+        },
+
+    });
+
+
+    var filterStore = Ext.create('Ext.data.Store', {
+        model: 'filters',
+        id: 'filtersStore',
+        data: [
+            { name: 'My Actions' },
+            { name: 'On Going Actions' },
+            { name: 'Closed Actions' },
+            { name: 'Delayed Actions' }
+        ]
+    });
+    //VIEWPORT
+
+    Ext.create('Ext.container.Viewport', {
+        layout: 'border',
+        id: 'mainViewport',
+        renderTo: Ext.getBody(),
+
+        items: [{
+            region: 'north',
+            //height: 50,
+            height: 98,
+            border: 0,
+            margin: 2,
+
+            bodyStyle: { "background-color": "#1F4E79" },
+            layout: {
+                type: 'table', columns: 2, tableAttrs: {
+                    style: {
+                        width: '100%',
+                        height: '100%',
+                        //"background-color": "#1F4E79"
+                        "background-color": "#FFFFFF"
+                    }
+                }
+            },
+            items: [{
+                xtype: 'FileDownloader',
+                id: 'FileDownloader'
+            }, {
+                xtype: 'container',
+                    items: [{
+                        xtype: 'image',
+                        //height: 36,
+                        height: 68,
+                        width: 68,
+                        //width: 98,
+                        //src: '../../' + 'img/amkorlogowhite.png'actiontoollogo
+                        src: '../../' + 'img/actiontoollogo.png'
+                    }]
+            }]
+
+        }, {
+            region: 'west',
+            //collapsible: true,
+            hidden: false,
+            width: 200,
+            id: 'west',
+            border: true,
+            header: {
+                titlePosition: 0,
+                title: 'Categories',
+                items: [{
+                    xtype: 'button',
+                    iconCls: 'refreshIcon',
+                    buttonText: '',
+         
+                    handler: function () {
+                        Ext.getStore('treeStore').reload();
+                    }
+                }]
+            },
+            
+            dockedItems: [{
+                xtype: 'toolbar',
+                dock: 'bottom',
+                flex: 1,
+                items: [{
+                    xtype: 'combobox',
+                    id: 'filterEventCombo',
+                    editable: false,
+                    readOnly: true,
+                    emptyText: 'Select an Event',
+                    displayField: 'name',
+                    store: filterStore,
+                    listeners: {
+                        change: function (combo, newValue, oldValue, eOpts) {
+                            //debugger;
+                            filterVar = '1';
+                            var filterArray = new Array();
+                            filterArray[0] = eventID;
+                            filterArray[1] = newValue;
+                            Ext.getStore('treeStoreAction').getProxy().setUrl('@ViewBag.getActionTreeFilteredItems');
+                            Ext.getStore('treeStoreAction').getProxy().setExtraParams({
+                                filterArray: filterArray
+                            });
+                            Ext.getStore('treeStoreAction').load();
+                            Ext.getCmp('clearFilterButton').setDisabled(false);
+
+                        }
+                    }
+                }, {
+                    xtype: 'tbspacer'
+                },{
+                    xtype: 'button',
+                    id: 'clearFilterButton',
+                    iconCls: 'xIcon',
+                    disabled: (filterVar == '0') ? true : false,
+                        handler: function () {
+                            //debugger;
+                            filterVar = '0';
+                            Ext.getCmp('filterEventCombo').reset();
+                            Ext.getStore('treeStoreAction').getProxy().setUrl('@ViewBag.getActionTreeItems');
+                            Ext.getStore('treeStoreAction').getProxy().setExtraParams({
+                                ID_EVENT: eventID
+                            });
+                            Ext.getStore('treeStoreAction').load();
+                            Ext.getCmp('clearFilterButton').setDisabled(true);
+                        }
+                }]
+            }]
+
+        },
+        {
+            region: 'center',
+            id: 'center',
+            xtype: 'panel',
+            border: false,
+            layout: {
+                type: 'fit',
+                align: 'stretch',
+                pack: 'begin'
+            },
+
+            dockedItems: [{
+
+                xtype: 'toolbar',
+                id: 'eventtoolbar',
+                hidden: (+userPermission < 1) ? true : false,
+                flex: 1,
+                items: [{
+
+                    xtype: 'button',
+                    id: 'categorybutton',
+                    hidden: (+userPermission > 1) ? true : false,
+                    text: 'New Category',
+                    handler: function () {
+
+                        Ext.create('Ext.window.Window', {
+                            flex: 1,
+                            id: 'newCategoryWindow',
+                            closable: true,
+                            title: 'New Category',
+                            scrollable: true,
+                            items: [{
+                                id: 'categoryForm',
+                                defaultType: 'textfield',
+                                xtype: 'form',
+                                items: [{
+                                    fieldLabel: 'Category Name',
+                                    labelAlign: 'top',
+                                    margin: '15 15 0 15',
+                                    name: 'C_DESC',
+                                    allowBlank: false
+                                },
+                                {
+                                    fieldLabel: 'Category Abbreviation',
+                                    labelAlign: 'top',
+                                    margin: '15 15 15 15',
+                                    maxLength: 4,
+                                    minLength: 4,
+                                    minLengthText: 'Length must be 4 characters',
+                                    enforceMaxLength: true,
+                                    name: 'ID_CATEGORY',
+                                    allowBlank: false
+                                },
+                                {
+                                    xtype: 'combobox',
+                                    id: 'categoryOwnerCombo',
+                                    fieldLabel: 'Category Responsible',
+                                    labelAlign: 'top',
+                                    margin: '15 15 15 15',
+                                    name: 'C_OWNER',
+                                    allowBlank: false,
+                                    store: 'ADStore',
+                                    anyMatch: true,
+                                    queryMode: 'local',
+                                    valueField: 'EMPLOYEEID',
+                                    displayField: 'DISPLAYNAME'
+                                }
+
+                                ],
+
+                                buttons: [{
+                                    text: 'Cancel',
+                                    handler: function () {
+                                        Ext.getCmp('categoryForm').getForm().reset();
+                                    }
+                                }, {
+                                    text: 'Submit',
+                                    formBind: true, //only enabled once the form is valid
+
+                                    handler: function () {
+                                        var categoryForm = Ext.getCmp('categoryForm');
+                                        var values = categoryForm.getValues();
+                                        var createCategoryArray = new Array();
+                                        createCategoryArray[0] = values.ID_CATEGORY;
+                                        createCategoryArray[1] = values.C_DESC;
+                                        createCategoryArray[2] = values.C_OWNER;
+
+                                        Ext.Ajax.request({
+                                            url: '@ViewBag.createCategory',
+                                            method: 'POST',
+                                            params: {
+                                                createCategoryArray: createCategoryArray
+                                            },
+
+                                            callback: function (options, sucess, response) {
+                                                //debugger;
+                                                var resp = Ext.JSON.decode(response.responseText);
+                                                if (resp.sucess == true) {
+                                                    Ext.getStore('treeStore').reload();
+                                                    Ext.getCmp('filterEventCombo').suspendEvent('change');
+                                                    Ext.getCmp('filterEventCombo').reset();
+                                                    Ext.getCmp('filterEventCombo').setReadOnly(true);
+                                                    Ext.getCmp('filterEventCombo').resumeEvent('change');
+                                                    Ext.Msg.alert('Action Management Tool', 'Category has been added');
+                                                    Ext.getCmp('newCategoryWindow').destroy();
+                                                }
+                                                else {
+                                                    Ext.Msg.alert('Action Management Tool', resp.statusText);
+                                                }
+                                            }
+
+                                        })
+                                    }
+
+                                }
+
+                                ]
+                            },
+
+                            ]
+                        }).show();
+                    }
+                }, {
+                    xtype: 'button',
+                    id: 'deletecategorybutton',
+                    hidden: (+userPermission > 1) ? true : false,
+                    text: 'Delete Category',
+                    disabled: true,
+                    handler: function () {
+                        var deleteCategoryArray = new Array();
+                        deleteCategoryArray[0] = getCategoryID();
+                        Ext.Ajax.request({
+                            url: '@ViewBag.deleteCategory',
+                            method: 'POST',
+                            params: {
+                                deleteCategoryArray: deleteCategoryArray
+                            },
+
+                            success: function () {
+                                Ext.getStore('treeStore').reload();
+                                Ext.getCmp('filterEventCombo').suspendEvent('change');
+                                Ext.getCmp('filterEventCombo').reset();
+                                Ext.getCmp('filterEventCombo').setReadOnly(true);
+                                Ext.getCmp('filterEventCombo').resumeEvent('change');
+                                Ext.getCmp('deleteEventButton').setDisabled(true)
+                                Ext.getCmp('archiveEventButton').setDisabled(true)
+                                Ext.getCmp('editEventButton').setDisabled(true)
+                                Ext.getCmp('createEventButton').setDisabled(true)
+                                Ext.Msg.alert('Action Management Tool', 'Category has been deleted');
+                            }
+
+                        })
+
+                    }
+                }, {
+                    xtype: 'button',
+                    id: 'createEventButton',
+                    hidden: (+userPermission > 2) ? true : false,
+                    text: 'New Event',
+                    disabled: true,
+
+                    handler: function () {
+
+
+                        Ext.create('Ext.window.Window', {
+                            id: 'newEventWindow',
+                            layout: {
+                                type: 'fit',
+                                align: 'stretch',
+                                pack: 'begin'
+                            },
+                            flex: 1,
+                            resizable: false,
+                            title: 'New Event',
+                            closable: true,
+                            scrollable: true,
+                            items: [{
+                                id: 'lvl2Form',
+                                defaultType: 'textfield',
+                                xtype: 'form',
+                                layout: 'vbox',
+                                items: [{
+                                    xtype: 'panel',
+                                    border: false,
+                                    layout: {
+                                        type: 'table', columns: 3,
+                                        tableAttrs: {
+                                            style: {
+                                                width: '100%'
+                                            }
+                                        }
+                                    },
+                                    items: [{
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Category',
+                                        labelWidth: 'auto',
+                                        name: 'ID_CATEGORY',
+                                        labelAlign: 'top',
+                                        colspan: 1,
+                                        margin: '15 15 0 15',
+                                        value: getCategoryText(),
+                                    }, {
+
+                                        xtype: 'combobox',
+                                        fieldLabel: 'Event Owner',
+                                        labelWidth: 'auto',
+                                        margin: '15 15 0 15',
+                                        labelAlign: 'top',
+                                        name: 'E_OWNER',
+                                        colspan: 1,
+                                        allowBlank: false,
+                                        store: 'ADStore',
+                                        anyMatch: true,
+                                        queryMode: 'local',
+                                        valueField: 'EMPLOYEEID',
+                                        displayField: 'DISPLAYNAME'
+                                    }, {
+                                        xtype: 'datefield',
+                                        fieldLabel: 'Planned End Date',
+                                        labelWidth: 'auto',
+                                        labelAlign: 'top',
+                                        name: 'E_PLANNED_END',
+                                        colspan: 1,
+                                        format: 'd/M/y',
+                                        margin: '15 15 0 15',
+                                        allowBlank: false
+                                    }]
+                                }, {
+                                    xtype: 'panel',
+                                    border: false,
+                                    layout: {
+                                        type: 'table', columns: 1,
+                                        tableAttrs: {
+                                            style: {
+                                                width: '100%'
+                                            }
+                                        }
+                                    },
+                                    items: [{
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Event',
+                                        name: 'E_SHORTDESCRIPTION',
+                                        labelAlign: 'top',
+                                        enforceMaxLength: true,
+                                        maxLength: 100,
+                                        width: 690,
+                                        colspan: 1,
+                                        margin: '15 15 15 15',
+                                        allowBlank: false
+                                    }]
+                                }, {
+                                    xtype: 'panel',
+                                    border: false,
+                                    layout: {
+                                        type: 'table', columns: 1,
+                                        tableAttrs: {
+                                            style: {
+                                                width: '100%'
+                                            }
+                                        }
+                                    },
+                                    items: [{
+                                        xtype: 'textareafield',
+                                        fieldLabel: 'Long Description',
+                                        name: 'E_LONGDESCRIPTION',
+                                        labelAlign: 'top',
+                                        enforceMaxLength: true,
+                                        maxLength: 400,
+                                        maxLengthText: true,
+                                        grow: true,
+                                        colspan: 1,
+                                        width: 690,
+                                        height: 90,
+                                        margin: '0 15 15 15',
+                                        allowBlank: false
+                                    }]
+                                }],
+
+                                buttons: [{
+                                    align: 'right',
+                                    text: 'Cancel',
+                                    handler: function () {
+                                        Ext.getCmp('lvl2Form').getForm().reset();
+                                    }
+                                }, {
+                                    align: 'right',
+                                    text: 'Submit',
+                                    formBind: true, //only enabled once the form is valid
+
+                                    handler: function () {
+
+                                        var planForm = Ext.getCmp('lvl2Form');
+                                        var values = planForm.getValues();
+                                        var newEventArray = new Array();
+                                        newEventArray[0] = getCategoryID();
+                                        newEventArray[1] = values.E_OWNER;
+                                        newEventArray[2] = values.E_SHORTDESCRIPTION;
+                                        newEventArray[3] = values.E_LONGDESCRIPTION;
+                                        newEventArray[4] = values.E_PLANNED_END;
+                                        Ext.Ajax.request({
+                                            url: '@ViewBag.createEvent',
+                                            method: 'POST',
+                                            params: {
+
+                                                newEventArray: newEventArray
+
+                                            },
+
+                                            success: function () {
+                                                Ext.getStore('treeStore').reload();
+                                                Ext.getCmp('deleteEventButton').setDisabled(true);
+                                                Ext.getCmp('archiveEventButton').setDisabled(true);
+                                                Ext.getCmp('editEventButton').setDisabled(true);
+                                                Ext.getCmp('createEventButton').setDisabled(true);
+                                                Ext.getCmp('filterEventCombo').suspendEvent('change');
+                                                Ext.getCmp('filterEventCombo').reset();
+                                                Ext.getCmp('filterEventCombo').setReadOnly(true);
+                                                Ext.getCmp('filterEventCombo').resumeEvent('change');
+                                                Ext.Msg.alert('Action Management Tool', 'Event has been added');
+                                                Ext.getCmp('newEventWindow').destroy();
+                                            }
+
+                                        })
+                                    }
+
+                                }]
+                            },
+
+                            ]
+                        }).show();
+                    }
+                }, {
+                    xtype: 'button',
+                    text: 'Edit Event',
+                    hidden: (+userPermission > 2) ? true : false,
+                    id: 'editEventButton',
+                    disabled: true,
+
+                    handler: function () {
+
+                        Ext.create('Ext.window.Window', {
+                            flex: 1,
+                            id: 'editEventWindow',
+                            title: 'Edit Event',
+                            closable: true,
+                            scrollable: true,
+                            items: [{
+                                id: 'editForm',
+                                defaultType: 'textfield',
+                                xtype: 'form',
+                                layout: 'vbox',
+                                items: [{
+                                    xtype: 'panel',
+                                    border: false,
+                                    defaultType: 'textfield',
+                                    layout: {
+                                        type: 'table', columns: 4,
+                                        tableAttrs: {
+                                            style: {
+                                                width: '100%'
+                                            }
+                                        }
+                                    },
+                                    items: [{
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Event Code',
+                                        labelAlign: 'top',
+                                        name: 'ID_EVENT',
+                                        colspan: 1,
+                                        editable: false,
+                                        margin: '15 15 0 15',
+                                        value: getEventID(),
+                                    },
+                                    {
+                                        xtype: 'combobox',
+                                        fieldLabel: 'Event Owner',
+                                        store: 'ADStore',
+                                        value: getEventOwnerID(),
+                                        allowBlank: false,
+                                        anyMatch: true,
+                                        queryMode: 'local',
+                                        name: 'E_OWNER',
+                                        labelAlign: 'top',
+                                        colspan: 1,
+                                        margin: '15 15 0 15',
+                                        valueField: 'EMPLOYEEID',
+                                        displayField: 'DISPLAYNAME'
+                                    }, {
+                                        xtype: 'datefield',
+                                        fieldLabel: 'Planned End Date',
+                                        labelAlign: 'top',
+                                        name: 'E_PLANNED_END',
+                                        format: 'd/M/y',
+                                        colspan: 1,
+                                        readOnly: true,
+                                        editable: false,
+                                        margin: '15 15 0 15',
+                                        value: getEventPED(),
+                                    }, {
+                                        xtype: 'datefield',
+                                        fieldLabel: 'Forecast End Date',
+                                        labelAlign: 'top',
+                                        name: 'E_FORECAST_ENDDATE',
+                                        format: 'd/M/y',
+                                        colspan: 1,
+                                        editable: false,
+                                        margin: '15 15 0 15',
+                                        value: getEventPFED(),
+                                    }]
+                                }, {
+                                    xtype: 'panel',
+                                    border: false,
+                                    defaultType: 'textfield',
+                                    layout: {
+                                        type: 'table', columns: 1,
+                                        tableAttrs: {
+                                            style: {
+                                                width: '100%'
+                                            }
+                                        }
+                                    },
+                                    items: [{
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Event',
+                                        name: 'E_SHORTDESCRIPTION',
+                                        value: getEventShortDesc(),
+                                        labelAlign: 'top',
+                                        enforceMaxLength: true,
+                                        maxLength: 100,
+                                        width: 690,
+                                        colspan: 1,
+                                        margin: '15 15 15 15',
+                                        allowBlank: false
+                                    }]
+                                }, {
+                                    xtype: 'panel',
+                                    border: false,
+                                    defaultType: 'textfield',
+                                    layout: {
+                                        type: 'table', columns: 1,
+                                        tableAttrs: {
+                                            style: {
+                                                width: '100%'
+                                            }
+                                        }
+                                    },
+                                    items: [{
+                                        xtype: 'textareafield',
+                                        fieldLabel: 'Long Description',
+                                        name: 'E_LONGDESCRIPTION',
+                                        value: getEventLongDesc(),
+                                        labelAlign: 'top',
+                                        enforceMaxLength: true,
+                                        maxLength: 400,
+                                        maxLengthText: true,
+                                        grow: true,
+                                        colspan: 1,
+                                        width: 690,
+                                        height: 90,
+                                        margin: '0 15 15 15',
+                                        allowBlank: false
+                                    }]
+                                }
+                                ],
+
+                                buttons: [{
+                                    text: 'Cancel',
+                                    handler: function () {
+                                        Ext.getCmp('editForm').getForm().reset();
+                                    }
+                                }, {
+                                    text: 'Submit',
+                                    formBind: true, //only enabled once the form is valid
+
+                                    handler: function () {
+                                        //debugger;
+                                        var editForm = Ext.getCmp('editForm');
+                                        var valuesedit = editForm.getValues();
+                                        var editArray = new Array();
+                                        editArray[0] = getCategoryID();
+                                        editArray[1] = getID_E();
+                                        editArray[2] = valuesedit.E_OWNER;
+                                        editArray[3] = valuesedit.E_SHORTDESCRIPTION;
+                                        editArray[4] = valuesedit.E_LONGDESCRIPTION;
+                                        editArray[5] = valuesedit.E_FORECAST_ENDDATE;
+
+                                        Ext.Ajax.request({
+                                            url: '@ViewBag.editEvent',
+                                            method: 'POST',
+                                            params: {
+                                                editArray: editArray
+                                            },
+
+                                            success: function () {
+                                                Ext.getStore('treeStore').reload();
+                                                Ext.getCmp('filterEventCombo').suspendEvent('change');
+                                                Ext.getCmp('filterEventCombo').reset();
+                                                Ext.getCmp('filterEventCombo').setReadOnly(true);
+                                                Ext.getCmp('filterEventCombo').resumeEvent('change');
+                                                Ext.Msg.alert('Action Management Tool', 'Event has been edited');
+                                                Ext.getCmp('editEventWindow').destroy();
+
+                                            }
+                                        })
+
+                                    }
+                                }]
+                            }]
+                        }).show();
+
+                    },
+
+                    afterrender: function () {
+                        ADStore.clearFilter()
+                    }
+
+                }, {
+                    xtype: 'button',
+                    text: 'Delete Event',
+                    hidden: (+userPermission > 2) ? true : false,
+                    id: 'deleteEventButton',
+                    disabled: true,
+
+                    handler: function () {
+
+                        var deleteArray = new Array();
+                        deleteArray[0] = getCategoryID();
+                        deleteArray[1] = getID_E();
+
+                        Ext.Ajax.request({
+
+                            url: '@ViewBag.deleteEvent',
+                            method: 'POST',
+                            params: {
+
+                                deleteArray: deleteArray
+
+                            },
+
+                            success: function () {
+                                Ext.getStore('treeStore').reload();
+                                Ext.getCmp('filterEventCombo').suspendEvent('change');
+                                Ext.getCmp('filterEventCombo').reset();
+                                Ext.getCmp('filterEventCombo').setReadOnly(true);
+                                Ext.getCmp('filterEventCombo').resumeEvent('change');
+                                Ext.Msg.alert('Action Management Tool', 'Event has been deleted');
+                            }
+
+                        })
+                    }
+                }, {
+                    xtype: 'button',
+                    text: 'Archive Event',
+                    hidden: (+userPermission > 2) ? true : false,
+                    id: 'archiveEventButton',
+                    disabled: true,
+                }, {
+                    xtype: 'button',
+                    id: 'manageweighteventbutton',
+                    hidden: (+userPermission > 2) ? true : false,
+                    text: 'Manage Weight',
+                    disabled: true,
+                    handler: function () {
+                        //debugger;
+                        eventID = getEventID()
+                        Ext.create('Ext.window.Window', {
+                            layout: 'fit',
+                            modal: true,
+                            id: 'manageweighteventwindow',
+                            flex: 1,
+                            //height: 500,
+                            //width: 734,
+                            resizable: false,
+                            header: {
+                                titlePosition: 0,
+                                title: 'Manage Weight',
+                                items: [{
+                                    xtype: 'panel',
+                                    id: 'actionsweighteventprogressbarlocation',
+                                    width: 200,
+                                }]
+                            },
+                            closable: true,
+                            scrollable: true,
+                            items: [{
+                                xtype: 'panel',
+                                id: 'weighteventpanel',
+                                layout: 'vbox'
+                            }],
+                            buttons: [{
+                                text: 'Submit',
+                                handler: function () {
+
+                                    var weightArray = []
+                                    Ext.Array.each(Ext.getCmp('weighteventpanel').items.items, function (data) {
+                                        //debugger;
+                                        var parameters = new Array();
+                                        parameters[0] = data.items.items[0].fieldLabel;
+                                        parameters[1] = data.items.items[0].value;
+
+                                        weightArray.push(parameters)
+
+                                    })
+
+                                    Ext.Ajax.request({
+                                        url: '@ViewBag.updateWeights',
+                                        method: 'POST',
+                                        params: {
+                                            weightArray: weightArray
+                                        },
+
+                                        success: function () {
+                                            Ext.getCmp('manageweighteventwindow').destroy();
+                                            Ext.Msg.alert('Action Management Tool', 'Event weight distribuition updated');
+                                            Ext.getStore('treeStoreAction').reload();
+                                            Ext.getCmp('filterEventCombo').suspendEvent('change');
+                                            Ext.getCmp('filterEventCombo').reset();
+                                            Ext.getCmp('filterEventCombo').setReadOnly(true);
+                                            Ext.getCmp('filterEventCombo').resumeEvent('change');
+                                        }
+                                    })
+                                }
+                            }]
+
+                        }).show();
+
+                        var EventInfoArray = new Array();
+                        EventInfoArray[0] = eventID;
+
+                        Ext.Ajax.request({
+                            url: '@ViewBag.getEventSonsWeight',
+                            method: 'POST',
+                            params: {
+                                EventInfoArray: EventInfoArray
+                            },
+
+                            callback: function (options, success, response) {
+                                //debugger;
+                                var resp = Ext.JSON.decode(response.responseText);
+
+                                var panelweighteventadd = [];
+                                var data = '{';
+                                var formula = '{';
+                                var datavalue = [];
+
+                                Ext.Array.each(resp.items, function (value) {
+
+                                    data += value.A_ID.replace(/\+|\-/ig, '_') + ':' + value.A_WEIGHT;
+                                    formula += "f" + value.A_ID.replace(/\+|\-/ig, '_') + ": '{" + value.A_ID.replace(/\+|\-/ig, '_') + "}'";
+                                    datavalue.push('data.f' + value.A_ID.replace(/\+|\-/ig, '_'));
+
+                                    try {
+                                        panelweighteventadd.push(
+                                            {
+                                                xtype: 'panel',
+                                                flex: 1,
+                                                layout: 'column',
+                                                id: 'sliderform' + value.A_ID,
+                                                items: [{
+                                                    xtype: 'numberfield',
+                                                    value: value.A_WEIGHT,
+                                                    fieldLabel: value.A_ID,
+                                                    value: value.A_WEIGHT,
+                                                    minValue: 0,
+                                                    maxValue: 100,
+                                                    margin: '15 15 15 15',
+                                                    bind: '{' + value.A_ID.replace(/\+|\-/ig, '_') + '}',
+                                                    listeners: {
+                                                        change: function (e, newValue, oldValue) {
+                                                            //debugger;
+                                                            var maxValue = 100;
+                                                            actualTotalValue = (Ext.getCmp('weightpaneleventprogressbar').getValue()) * 100
+                                                            diff = newValue - oldValue;
+                                                            if (maxValue < (actualTotalValue + diff)) e.setValue(oldValue);
+                                                        }
+                                                    }
+                                                }, {
+                                                    xtype: 'panel',
+                                                    layout: 'fit',
+                                                    margin: '15 15 15 15',
+                                                    border: false,
+                                                    items: [{
+                                                        xtype: 'slider',
+                                                        width: 200,
+                                                        value: value.A_WEIGHT,
+                                                        increment: 1,
+                                                        minValue: 0,
+                                                        maxValue: 100,
+                                                        readOnly: true,
+                                                        bind: '{' + value.A_ID.replace(/\+|\-/ig, '_') + '}',
+                                                        listeners: {
+                                                            beforechange: function (e, newValue, oldValue) {
+                                                                //debugger;
+                                                                if (Ext.getCmp('weightpaneleventprogressbar') != undefined) {
+                                                                    var maxValue = 100;
+                                                                    actualTotalValue = (Ext.getCmp('weightpaneleventprogressbar').getValue()) * 100
+                                                                    diff = newValue - oldValue;
+                                                                    if (maxValue < (actualTotalValue + diff)) return false;
+                                                                }
+                                                            },
+                                                            change: function (a, newValue, oldValue) {
+                                                                //debugger;
+                                                                if (Ext.getCmp('weightpaneleventprogressbar') != undefined) {
+
+                                                                    var maxValue = 100;
+                                                                    actualTotalValue = (Ext.getCmp('weightpaneleventprogressbar').getValue()) * 100
+                                                                    diff = newValue - oldValue;
+                                                                    if (maxValue < (actualTotalValue + diff)) return false;
+
+                                                                    if (Ext.getCmp('weightpaneleventprogressbar').getValue == 1) {
+                                                                        a.setDisabled(true)
+                                                                    }
+                                                                    else {
+                                                                        a.setDisabled(false)
+                                                                    }
+                                                                }
+                                                            }
+
+                                                        }
+                                                    }]
+                                                }],
+
+                                            })
+                                    } catch (e) {
+                                        debugger;
+                                    }
+
+                                    data += ', ';
+                                    formula += ', ';
+
+                                });
+
+                                data += '}';
+                                formula += '}';
+                                var viewmodel = '{data:' + data + ', formulas: {sumAllValues: {bind:' + formula + ', get: function (data) {return ( ' + ((datavalue.join('+')) + ' )/100') + ';}}}}';
+                                var viewModelObject = Ext.JSON.decode(viewmodel);
+                                try {
+                                    //debugger;
+                                    Ext.getCmp('manageweighteventwindow').setViewModel(viewModelObject);
+                                } catch (e) {
+                                    debugger;
+                                }
+                                //debugger;
+                                Ext.getCmp('weighteventpanel').add(panelweighteventadd);
+
+                                Ext.getCmp('actionsweighteventprogressbarlocation').add({
+                                    xtype: 'progressbar',
+                                    id: 'weightpaneleventprogressbar',
+                                    bind: '{sumAllValues}',
+                                    flex: 1,
+                                });
+
+                            }
+
+                        })
+
+                    }
+                }],
+
+            }],
+            items: [{
+
+                xtype: 'panel',
+                id: 'eventInformationPanel',
+                hidden: true,
+                layout: {
+                    type: 'vbox',
+                    align: 'stretch',
+                    pack: 'begin'
+                },
+                items: [{
+                    xtype: 'panel',
+                    header: {
+                        titlePosition: 0,
+                        title: 'Event Information',
+                        items: [{
+                            xtype: 'progressbar',
+                            id: 'eventAccomplishmentDisplay',
+                            width: 200
+                        }]
+                    },
+                    layout: {
+                        type: 'fit',
+                        align: 'stretch',
+                        pack: 'begin',
+                    },
+                    items: [{
+                        xtype: 'panel',
+                        layout: {
+                            type: 'column',
+                        },
+                        items: [{
+                            xtype: 'panel',
+                            border: false,
+                            columnWidth: 0.5,
+                            layout: {
+                                type: 'table', columns: 1,
+                                tableAttrs: {
+                                    style: {
+                                        width: '100%'
+                                    }
+                                }
+                            },
+                            items: [
+                                {
+                                    xtype: 'textfield',
+                                    fieldLabel: 'Event',
+                                    id: 'eventShortDescriptionDisplay',
+                                    name: 'E_SHORTDESCRIPTION',
+                                    labelAlign: 'top',
+                                    editable: false,
+                                    enforceMaxLength: true,
+                                    maxLength: 100,
+                                    width: 690,
+                                    colspan: 1,
+                                    margin: '15 15 15 15',
+                                    allowBlank: false
+                                }, {
+                                    xtype: 'textareafield',
+                                    fieldLabel: 'Long Description',
+                                    id: 'eventLongDescriptionDisplay',
+                                    name: 'E_LONGDESCRIPTION',
+                                    labelAlign: 'top',
+                                    editable: false,
+                                    enforceMaxLength: true,
+                                    maxLength: 400,
+                                    maxLengthText: true,
+                                    grow: true,
+                                    colspan: 1,
+                                    width: 690,
+                                    height: 90,
+                                    margin: '0 15 15 15',
+                                    allowBlank: false
+                                }]
+
+                        }, {
+                            xtype: 'panel',
+                            columnWidth: 0.5,
+                            border: false,
+                            layout: {
+                                type: 'table', columns: 2,
+                                tableAttrs: {
+                                    style: {
+                                        width: '100%'
+                                    }
+                                }
+                            },
+                            items: [
+                                {
+                                    xtype: 'textfield',
+                                    fieldLabel: 'Event Code',
+                                    id: 'eventCodeDisplay',
+                                    //labelAlign: 'top',
+                                    editable: false,
+                                    name: 'EVENT_ID',
+                                    margin: '50 15 15 15',
+                                    colspan: 1
+                                }, {
+                                    xtype: 'textfield',
+                                    fieldLabel: 'Event Owner',
+                                    id: 'eventOwnerDisplay',
+                                    //labelAlign: 'top',
+                                    editable: false,
+                                    name: 'P_OWNER',
+                                    margin: '50 15 15 15',
+                                    colspan: 1
+                                }, {
+                                    xtype: 'textfield',
+                                    fieldLabel: 'Start Date',
+                                    id: 'eventStartDateDisplay',
+                                    //labelAlign: 'top',
+                                    editable: false,
+                                    colspan: 1,
+                                    margin: '15 15 15 15',
+                                }, {
+                                    xtype: 'textfield',
+                                    fieldLabel: 'Planned End Date',
+                                    id: 'eventPlannedEndDateDisplay',
+                                    //labelAlign: 'top',
+                                    editable: false,
+                                    colspan: 1,
+                                    margin: '15 15 15 15',
+                                }
+                            ]
+
+
+                        }]
+                    }]
+                },
+                {
+                    id: 'centerloader',
+                    flex: 1,
+                    loader:
+                    {
+                        contentType: 'html',
+                        loadMask: true,
+                        scripts: true,
+                        autoLoad: false,
+                        url: "@ViewBag.ActionPanel"
+                    }
+                }]
+            }],
+
+        }],
+
+
+
+    });
+
+
+    //debugger;
+    var treePanel = Ext.create('Ext.tree.Panel', {
+        //title: 'Navigation',
+        collapsed: false,
+        //collapsible: true,
+        id: 'treePanel',
+        flex: 1,
+        scrollable: true,
+        border: false,
+        store: treeStore,
+        rootVisible: false,
+        columns: [{
+            flex: 1,
+            xtype: 'treecolumn',
+            //header: 'Categories',
+            dataIndex: 'text'
+        }],
+        listeners: {
+            cellclick: function (cell, td, cellIndex, record, tr, rowIndex, e, eOpts) {
+                //debugger;
+                if (record.data.leaf == true) {
+
+                    eventID = record.data.ID_EVENT;
+
+                    Ext.getCmp('deleteEventButton').setDisabled(false)
+                    Ext.getCmp('archiveEventButton').setDisabled(false)
+                    Ext.getCmp('editEventButton').setDisabled(false)
+                    Ext.getCmp('createEventButton').setDisabled(true)
+                    Ext.getCmp('eventInformationPanel').setHidden(false)
+                    Ext.getCmp('manageweighteventbutton').setDisabled(false)
+                    setValueEventInformation(record)
+                    if (typeof (Ext.getCmp('loadedborder')) != "undefined") {
+                        remove();
+                        Ext.getCmp('loadedborder').destroy();
+
+                    }
+
+                    Ext.getCmp('centerloader').getLoader().load({
+                        params: {
+                            ID_EVENT: record.data.ID_EVENT
+                        }
+                    });
+
+
+                    if (record.data.HASCHILD.length == 0) {
+                        Ext.getCmp('deleteEventButton').setDisabled(false)
+                        Ext.getCmp('editEventButton').setDisabled(false)
+                        Ext.getCmp('manageweighteventbutton').setDisabled(true)
+                    }
+                    else {
+                        Ext.getCmp('deleteEventButton').setDisabled(true)
+                        //Ext.getCmp('editEventButton').setDisabled(true)
+                        Ext.getCmp('manageweighteventbutton').setDisabled(false)
+                    }
+
+                    Ext.getCmp('filterEventCombo').setReadOnly(false);
+                    Ext.getCmp('filterEventCombo').setEmptyText('Filter Event');
+                    //================================================================================//
+                    //==============================PERMISSIONS OPERATIONS===========================//
+                    //==============================================================================//
+                    if (userPermission > 1) {
+                        //debugger;
+                        if (record.parentNode.data.C_OWNER == employeeID) {
+
+                            setEventToolbarButtonPermission2()
+                        }
+                        else if (record.data.E_OWNER == employeeID) {
+                            setEventToolbarButtonPermission2()
+                        }
+                        else {
+                            setEventToolbarButtonPermissionUsers();
+                        }
+                    }
+
+                }
+                else {
+                    Ext.getCmp('createEventButton').setDisabled(false)
+                    Ext.getCmp('editEventButton').setDisabled(true)
+                    Ext.getCmp('archiveEventButton').setDisabled(true)
+                    Ext.getCmp('manageweighteventbutton').setDisabled(true)
+                    if (record.data.filhos.length == "0") {
+                        Ext.getCmp('deletecategorybutton').setDisabled(false)
+                    }
+                    else {
+                        Ext.getCmp('deletecategorybutton').setDisabled(true)
+                    }
+
+                    Ext.getCmp('filterEventCombo').setReadOnly(true);
+                    Ext.getCmp('filterEventCombo').setEmptyText('Select an Event');
+                    //================================================================================//
+                    //==============================PERMISSIONS OPERATIONS===========================//
+                    //==============================================================================//
+
+                    if (userPermission > 1) {
+
+                        if (record.data.C_OWNER == employeeID) {
+
+                            setEventToolbarButtonPermission2();
+                        }
+                        else {
+
+                            setEventToolbarButtonPermissionUsers();
+                        }
+                    }
+                }
+
+
+
+            },
+
+        }
+
+
+    });
+
+    function remove() {
+        var panelCenter = Ext.getCmp('centerloader');
+        panelCenter.items.each(function (item, index, len) {
+            this.remove(item, true);
+        }, panelCenter);
+    }
+
+    Ext.getCmp("west").add(treePanel);
+
+</script>

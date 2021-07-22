@@ -1,0 +1,2928 @@
+@{
+ 
+    Layout = null;
+}
+
+
+<script type="text/javascript">
+
+    var actionID = null;
+    var ownerID = null;
+    var eventID = getEventID();
+    var weightsum = 0;
+    var dwngController = '@ViewBag.DownloadController';
+
+    function DownloadAttachment(filepath) {
+        //debugger;
+        var downloader = Ext.getCmp('FileDownloader')
+        var exportApiUrl = dwngController + '?FileName=' + encodeURIComponent(filepath);
+        downloader.load({
+            url: exportApiUrl
+        });
+    }
+
+    //==============================MODELS==============================//
+
+    Ext.define('treeActionModel', {
+        extend: 'Ext.data.TreeModel',
+        fields: [
+            { name: 'A_ID' },
+            { name: 'A_ID_E' },
+            { name: 'A_PARENT' },
+            { name: 'A_STATUS' },
+            { name: 'text' },
+            { name: 'leaf' },
+            { name: 'A_OWNER' },
+            { name: 'A_PLANNED_START' },
+            { name: 'A_START_DATE' },
+            { name: 'A_PLANNED_END' },
+            { name: 'A_END_DATE' },
+            { name: 'A_WEIGHT' },
+        ]
+    });
+
+    Ext.define('LastUpdateModel', {
+        extend: 'Ext.data.Model',
+        fields: [
+            { name: 'LU_A_ID', type: 'string' },
+            { name: 'LAST_UPDATE', type: 'string' },
+            { name: 'LAST_UPDATE_DATE', type:'string' },
+            { name: 'LU_ACCOMPLISHMENT', type: 'string' },
+            { name: 'UPDATE_OWNER', type: 'string' },
+        ]
+    });
+
+    Ext.define('states', {
+        extend: 'Ext.data.Model',
+        fields: [
+            { name: 'name', type: 'string' },
+            ]
+    });
+
+    Ext.define('attachment', {
+        extend: 'Ext.data.Model',
+        fields: [
+            { name: 'NAME', type: 'string' },
+        ]
+    });
+
+
+
+
+
+
+    //==============================STORE==============================//
+
+    var treeStoreAction = Ext.create('Ext.data.TreeStore', {
+
+            storeId: 'treeStoreAction',
+            model: 'treeActionModel',
+            autoLoad: true,
+            proxy: {
+                type: 'ajax',
+                actionMethods: {
+                    read: 'POST'
+                },
+                extraParams: {
+                    ID_EVENT: '@ViewBag.ID_EVENT'
+                },
+                url: '@ViewBag.getActionTreeItems',
+                reader: {
+
+                    type: 'json',
+                    rootProperty: function (data) {
+
+                        return data.items || data.filhos;
+                    }
+                },
+        },
+        listeners: {
+
+            load: function (store, records, successful, operation, eOpts) {
+                //debugger;
+                Ext.getCmp('editactiongroupbutton').setDisabled(true)
+                Ext.getCmp('deleteactiongroupbutton').setDisabled(true)
+                Ext.getCmp('newactionbutton').setDisabled(true)
+                Ext.getCmp('editactionbutton').setDisabled(true)
+                Ext.getCmp('deleteactionbutton').setDisabled(true)
+                Ext.getCmp('manageweightbutton').setDisabled(true)
+
+                if (records.length > 0) {
+                    Ext.getCmp('eventAccomplishmentDisplay').updateProgress(records[0].data.A_E_ACCOMPLISHMENTS / 100, 'Event Accomplishment: ' + records[0].data.A_E_ACCOMPLISHMENTS + ' %' )
+                }
+                else {
+                    Ext.getCmp('eventAccomplishmentDisplay').updateProgress(0, 'Event is empty')
+                }
+
+            }
+        }
+    });
+
+
+    var lastUpdateStore = Ext.create('Ext.data.Store', { //definir matriz para interpretar tipo de ação
+      id: 'lastUpdateStore',
+      model: 'LastUpdateModel',
+
+        proxy: {
+
+            type: 'ajax',
+            url: '@ViewBag.getLastUpdateData',
+
+            actionMethods: {
+                create: 'POST',
+                read: 'POST', // by default GET
+                update: 'POST',
+                destroy: 'POST'
+            },
+            reader: {
+                type: 'json',
+                //action: 'POSTViewBag,
+                rootProperty: 'items'
+            }
+        },
+        listeners: {
+            load: function () {
+                //debugger;
+            }
+        }
+    });
+
+    var statesStore = Ext.create('Ext.data.Store', {
+        model: 'states',
+        id: 'statesStore',
+        data: [
+            { name: 'Closed' },
+        ]
+    });
+
+    var attachmentStore = Ext.create('Ext.data.Store', { //definir matriz para interpretar tipo de ação
+        id: 'attachmentStore',
+        model: 'attachment',
+
+        proxy: {
+
+            type: 'ajax',
+            url: '@ViewBag.getAttachments',
+
+            actionMethods: {
+                create: 'POST',
+                read: 'POST', // by default GET
+                update: 'POST',
+                destroy: 'POST'
+            },
+            reader: {
+                type: 'json',
+                rootProperty: 'items'
+            }
+        },
+        listeners: {
+            load: function () {
+                //debugger;
+            }
+        }
+    });
+
+
+
+
+    Ext.create('Ext.panel.Panel', {
+        layout: {
+            type: 'border',
+            align: 'stretch',
+        },
+        id: 'loadedborder',
+        border: false,
+        renderTo: 'ActionPanel',
+        flex:1,
+
+        items:[
+        {
+            region: 'center',
+            id: 'centerAction',
+            flex: 1,
+            xtype: 'panel',
+            layout: {
+                type: 'fit',
+                align: 'stretch',
+            },
+            scrollable:true,
+
+
+            dockedItems: [{
+
+                xtype: 'toolbar',
+                id: 'actiontoolbar',
+                align: 'stretch',
+                flex: 1,
+                items: [{
+
+                    xtype: 'button',
+                    id: 'newactiongroupbutton',
+                    hidden: (+userPermission > 2) ? true : false,
+                    text: 'New Plan',
+
+                    handler: function () {
+                        //debugger;
+                            Ext.create('Ext.window.Window', {
+
+                                flex: 1,
+                                layout: 'fit',
+                                closable: true,
+                                title: 'New Plan',
+                                id: 'newActionGroupWindow',
+                                modal: true,
+                                resizable: false,
+                                scrollable: true,
+                                items: [{
+                                    id: 'actionGroupForm',
+                                    xtype: 'form',
+                                    flex: 1,
+                                    layout: 'vbox',
+
+                                    items: [{
+                                        xtype: 'panel',
+                                        border: false,
+                                        defaultType: 'textfield',
+                                        layout: {
+                                            type: 'table', columns: 4,
+                                            tableAttrs: {
+                                                style: {
+                                                    width: '100%'
+                                                }
+                                            }
+                                        },
+                                        items: [{
+                                            xtype: 'textfield',
+                                            fieldLabel: 'Event Identification',
+                                            labelAlign: 'top',
+                                            editable: false,
+                                            colspan: 1,
+                                            name: 'A_ID_P',
+                                            margin: '15 15 0 15',
+                                            value: getEventID(),
+                                        }, {
+                                            xtype: 'combobox',
+                                            fieldLabel: 'Plan Owner',
+                                            labelAlign: 'top',
+                                            margin: '15 15 0 15',
+                                            name: 'A_OWNER',
+                                            colspan: 1,
+                                            allowBlank: false,
+                                            store: 'ADStore',
+                                            anyMatch: true,
+                                            queryMode: 'local',
+                                            valueField: 'EMPLOYEEID',
+                                            displayField: 'DISPLAYNAME'
+                                        }, {
+                                            xtype: 'datefield',
+                                            fieldLabel: 'Planned Start Date',
+                                            labelAlign: 'top',
+                                            name: 'A_PLANNED_START',
+                                            colspan: 1,
+                                            format: 'd/M/y',
+                                            margin: '15 15 0 15',
+                                            allowBlank: false,
+                                            maxValue: Ext.Date.parse(Ext.getCmp('eventPlannedEndDateDisplay').getValue(), 'd/m/Y'),
+                                            minValue: new Date(),
+                                        }, {
+                                            xtype: 'datefield',
+                                            fieldLabel: 'Planned End Date',
+                                            labelAlign: 'top',
+                                            name: 'A_PLANNED_END',
+                                            colspan: 1,
+                                            format: 'd/M/y',
+                                            margin: '15 15 0 15',
+                                            allowBlank: false,
+                                            maxValue: Ext.Date.parse(Ext.getCmp('eventPlannedEndDateDisplay').getValue(), 'd/m/Y'),
+                                            minValue: new Date(),
+                                        }]
+
+                                    }, {
+                                            xtype: 'panel',
+                                            border: false,
+                                            layout: {
+                                                type: 'table', columns: 1,
+                                                tableAttrs: {
+                                                    style: {
+                                                        width: '100%'
+                                                    }
+                                                }
+                                            },
+                                            items: [
+                                                {
+                                                    xtype: 'textfield',
+                                                    fieldLabel: 'Plan',
+                                                    name: 'A_SHORT_DESCRIPTION',
+                                                    labelAlign: 'top',
+                                                    enforceMaxLength: true,
+                                                    maxLength: 100,
+                                                    width: 690,
+                                                    colspan: 1,
+                                                    margin: '15 15 15 15',
+                                                    allowBlank: false
+                                                }]
+
+                                        }, {
+                                            xtype: 'panel',
+                                            border: false,
+                                            layout: {
+                                                type: 'table', columns: 1,
+                                                tableAttrs: {
+                                                    style: {
+                                                        width: '100%'
+                                                    }
+                                                }
+                                            },
+                                            items: [
+                                                {
+                                                    xtype: 'textareafield',
+                                                    fieldLabel: 'Long Description',
+                                                    name: 'A_LONG_DESCRIPTION',
+                                                    labelAlign: 'top',
+                                                    enforceMaxLength: true,
+                                                    maxLength: 400,
+                                                    maxLengthText: true,
+                                                    grow: true,
+                                                    colspan: 1,
+                                                    width: 690,
+                                                    height: 90,
+                                                    margin: '0 15 15 15',
+                                                    allowBlank: false
+                                                }]
+
+                                        }],
+
+
+                                    buttons: [{
+                                        text: 'Cancel',
+                                        handler: function () {
+                                            Ext.getCmp('actionGroupForm').getForm().reset();
+                                        }
+                                    }, {
+                                        text: 'Submit',
+                                        formBind: true, //only enabled once the form is valid
+
+                                        handler: function () {
+
+                                            var actionGroupForm = Ext.getCmp('actionGroupForm');
+                                            var actionGroupValues = actionGroupForm.getValues();
+                                            var actionGroupArray = new Array();
+                                            actionGroupArray[0] = getEventID();
+                                            actionGroupArray[1] = actionGroupValues.A_OWNER;
+                                            actionGroupArray[2] = actionGroupValues.A_SHORT_DESCRIPTION;
+                                            actionGroupArray[3] = actionGroupValues.A_LONG_DESCRIPTION;
+                                            actionGroupArray[4] = actionGroupValues.A_PLANNED_START;
+                                            actionGroupArray[5] = actionGroupValues.A_PLANNED_END;
+                                            actionGroupArray[6] = actionGroupValues.A_WEIGHT;
+
+                                            Ext.Ajax.request({
+                                                url: '@ViewBag.createActionGroup',
+                                                method: 'POST',
+                                                params: {
+                                                    actionGroupArray: actionGroupArray
+                                                },
+
+                                                //success: function () {
+                                                callback: function (options, sucess, response) {
+                                                    //debugger;
+                                                    var resp = Ext.JSON.decode(response.responseText);
+                                                    if (resp.sucess == true) {
+                                                        Ext.create('Ext.window.Window', {
+                                                            layout: 'fit',
+                                                            modal: true,
+                                                            id: 'newactiongroupweightwindow',
+                                                            flex: 1,
+                                                            resizable: false,
+                                                            renderTo: document.body,
+                                                            header: {
+                                                                titlePosition: 0,
+                                                                title: 'Manage Weight',
+                                                                items: [{
+                                                                    xtype: 'panel',
+                                                                    id: 'newActionGroupWeightProgressBarLocation',
+                                                                    width: 200,
+                                                                }]
+                                                            },
+                                                            closable: false,
+                                                            scrollable: true,
+                                                            items: [{
+                                                                xtype: 'panel',
+                                                                id: 'newActionGroupWeightpanel',
+                                                                layout: 'vbox'
+                                                            }],
+                                                            buttons: [{
+                                                                text: 'Submit',
+                                                                handler: function () {
+
+                                                                    var weightArray = []
+                                                                    Ext.Array.each(Ext.getCmp('newActionGroupWeightpanel').items.items, function (data) {
+                                                                        //debugger;
+                                                                        var parameters = new Array();
+                                                                        parameters[0] = data.items.items[0].fieldLabel;
+                                                                        parameters[1] = data.items.items[0].value;
+
+                                                                        weightArray.push(parameters)
+
+                                                                    })
+
+                                                                    Ext.Ajax.request({
+                                                                        url: '@ViewBag.updateWeights',
+                                                                        method: 'POST',
+                                                                        params: {
+                                                                            weightArray: weightArray
+                                                                        },
+
+                                                                        success: function () {
+                                                                            Ext.getCmp('newactiongroupweightwindow').destroy();
+                                                                            Ext.getCmp('newActionGroupWindow').destroy();
+                                                                            Ext.Msg.alert('Action Management Tool', 'Plan has been created');
+                                                                            Ext.getStore('treeStoreAction').reload();
+                                                                        }
+                                                                    })
+                                                                }
+                                                            }]
+
+                                                        }).show();
+                                                        //debugger;
+                                                        var eventInfoArray = new Array();
+                                                        eventInfoArray[0] = eventID;
+
+                                                        Ext.Ajax.request({
+                                                            url: '@ViewBag.getEventSonsWeight',
+                                                            method: 'POST',
+                                                            params: {
+                                                                eventInfoArray: eventInfoArray
+                                                            },
+
+                                                            callback: function (options, success, response) {
+                                                                //debugger;
+                                                                var resp = Ext.JSON.decode(response.responseText);
+
+                                                                var panelweighteventadd = [];
+                                                                var data = '{';
+                                                                var formula = '{';
+                                                                var datavalue = [];
+
+                                                                Ext.Array.each(resp.items, function (value) {
+
+                                                                    data += value.A_ID.replace(/\+|\-/ig, '_') + ':' + value.A_WEIGHT;
+                                                                    formula += "f" + value.A_ID.replace(/\+|\-/ig, '_') + ": '{" + value.A_ID.replace(/\+|\-/ig, '_') + "}'";
+                                                                    datavalue.push('data.f' + value.A_ID.replace(/\+|\-/ig, '_'));
+
+                                                                    try {
+                                                                        panelweighteventadd.push(
+                                                                            {
+                                                                                xtype: 'panel',
+                                                                                flex: 1,
+                                                                                layout: 'column',
+                                                                                id: 'sliderform' + value.A_ID,
+                                                                                items: [{
+                                                                                    xtype: 'numberfield',
+                                                                                    value: value.A_WEIGHT,
+                                                                                    fieldLabel: value.A_ID,
+                                                                                    value: value.A_WEIGHT,
+                                                                                    minValue: 0,
+                                                                                    maxValue: 100,
+                                                                                    margin: '15 15 15 15',
+                                                                                    bind: '{' + value.A_ID.replace(/\+|\-/ig, '_') + '}',
+                                                                                    listeners: {
+                                                                                        change: function (e, newValue, oldValue) {
+                                                                                            //debugger;
+                                                                                            var maxValue = 100;
+                                                                                            actualTotalValue = (Ext.getCmp('actionGroupWeightPanelProgressBar').getValue()) * 100
+                                                                                            diff = newValue - oldValue;
+                                                                                            if (maxValue < (actualTotalValue + diff)) e.setValue(oldValue);
+                                                                                        }
+                                                                                    }
+                                                                                }, {
+                                                                                    xtype: 'panel',
+                                                                                    layout: 'fit',
+                                                                                    margin: '15 15 15 15',
+                                                                                    border: false,
+                                                                                    items: [{
+                                                                                        xtype: 'slider',
+                                                                                        width: 200,
+                                                                                        value: value.A_WEIGHT,
+                                                                                        increment: 1,
+                                                                                        minValue: 0,
+                                                                                        maxValue: 100,
+                                                                                        readOnly: true,
+                                                                                        bind: '{' + value.A_ID.replace(/\+|\-/ig, '_') + '}',
+                                                                                        listeners: {
+                                                                                            beforechange: function (e, newValue, oldValue) {
+                                                                                                //debugger;
+                                                                                                if (Ext.getCmp('actionGroupWeightPanelProgressBar') != undefined) {
+                                                                                                    var maxValue = 100;
+                                                                                                    actualTotalValue = (Ext.getCmp('actionGroupWeightPanelProgressBar').getValue()) * 100
+                                                                                                    diff = newValue - oldValue;
+                                                                                                    if (maxValue < (actualTotalValue + diff)) return false;
+                                                                                                }
+                                                                                            },
+                                                                                            change: function (a, newValue, oldValue) {
+                                                                                                //debugger;
+                                                                                                if (Ext.getCmp('actionGroupWeightPanelProgressBar') != undefined) {
+
+                                                                                                    var maxValue = 100;
+                                                                                                    actualTotalValue = (Ext.getCmp('actionGroupWeightPanelProgressBar').getValue()) * 100
+                                                                                                    diff = newValue - oldValue;
+                                                                                                    if (maxValue < (actualTotalValue + diff)) return false;
+
+                                                                                                    if (Ext.getCmp('actionGroupWeightPanelProgressBar').getValue == 1) {
+                                                                                                        a.setDisabled(true)
+                                                                                                    }
+                                                                                                    else {
+                                                                                                        a.setDisabled(false)
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+
+                                                                                        }
+                                                                                    }]
+                                                                                }],
+
+                                                                            })
+                                                                    } catch (e) {
+                                                                        debugger;
+                                                                    }
+
+                                                                    data += ', ';
+                                                                    formula += ', ';
+
+                                                                });
+
+                                                                data += '}';
+                                                                formula += '}';
+                                                                var viewmodel = '{data:' + data + ', formulas: {sumAllValues: {bind:' + formula + ', get: function (data) {return ( ' + ((datavalue.join('+')) + ' )/100') + ';}}}}';
+                                                                var viewModelObject = Ext.JSON.decode(viewmodel);
+                                                                try {
+                                                                    //debugger;
+                                                                    Ext.getCmp('newactiongroupweightwindow').setViewModel(viewModelObject);
+                                                                } catch (e) {
+                                                                    debugger;
+                                                                }
+                                                                //debugger;
+                                                                Ext.getCmp('newActionGroupWeightpanel').add(panelweighteventadd);
+
+                                                                Ext.getCmp('newActionGroupWeightProgressBarLocation').add({
+                                                                    xtype: 'progressbar',
+                                                                    id: 'actionGroupWeightPanelProgressBar',
+                                                                    bind: '{sumAllValues}',
+                                                                    flex: 1,
+                                                                });
+
+                                                            }
+
+                                                        })
+                                                    }
+                                                    else {
+                                                        Ext.Msg.alert('Action Management Tool', resp.statusText);
+                                                    }
+                                                }
+
+
+                                            })
+
+                                        }
+
+                                    }
+
+                                    ]
+
+                                },
+
+                                    ]
+                                }).show();
+                        }
+
+
+                }, {
+
+                    xtype: 'button',
+                    id: 'editactiongroupbutton',
+                    text: (+userPermission > 3) ? 'Plan Information' : 'Manage Plan',
+                    disabled: true,
+
+                        handler: function () {
+                            actionID = getActionID()
+                            ownerID = Ext.getCmp('treePanel1').getSelection()[0].get('A_OWNER')
+                            actionStatus = getActionStatus();
+                            Ext.StoreManager.lookup('lastUpdateStore').proxy.setExtraParams({
+                                A_ID: getActionID()
+                            })
+                            Ext.StoreManager.lookup('lastUpdateStore').load()
+                            Ext.StoreManager.lookup('attachmentStore').proxy.setExtraParams({
+                                A_ID: getActionID()
+                            })
+                            Ext.StoreManager.lookup('attachmentStore').load()
+
+                            Ext.create('Ext.window.Window', {
+                                id: 'manageActionGroupWindow',
+                                layout: 'fit',
+                                height: 500,
+                                width: 1034,
+                                resizable: false,
+                                closable: true,
+                                modal: true,
+                                header: {
+                                    titlePosition: 0,
+                                    title: 'Manage Plan',
+                                    items: [{
+                                        xtype: 'displayfield',
+                                        id: 'manageActionGroupTitleDisplayField',
+                                        value: 'Status: ' + actionStatus,
+                                        fieldCls: 'titleDisplay',
+                                        margin: '0 0 0 5'
+                                    }]
+                                },
+                                resizable: false,
+                                scrollable: true,
+                                items: [{
+                                    id: 'editActionGroupForm',
+                                    xtype: 'form',
+                                    border: false,
+                                    flex: 1,
+                                    layout: {
+                                        type: 'vbox',
+                                        align: 'stretch',
+                                        pack: 'begin'
+                                    },
+                                    items: [{
+                                        xtype: 'panel',
+                                        border: false,
+                                        layout: {
+                                            type: 'column',
+                                            align: 'stretch'
+                                        },
+                                        items: [{
+                                            xtype: 'panel',
+                                            columnWidth: 0.75,
+                                            width: 734,
+                                            layout: {
+                                                type: 'vbox',
+                                                align: 'stretch',
+                                            },
+                                            items: [{
+                                                xtype: 'panel',
+                                                border: false,
+                                                defaultType: 'textfield',
+                                                layout: {
+                                                    type: 'table', columns: 4,
+                                                    tableAttrs: {
+                                                        style: {
+                                                            width: '100%'
+                                                        }
+                                                    }
+                                                },
+                                                items: [
+                                                    {
+                                                        xtype: 'combobox',
+                                                        fieldLabel: 'Plan Owner',
+                                                        labelAlign: 'top',
+                                                        margin: '15 15 0 15',
+                                                        name: 'A_OWNER',
+                                                        readOnly: (+userPermission > 2) ? true : false,
+                                                        colspan: 1,
+                                                        value: ownerID,
+                                                        allowBlank: false,
+                                                        store: 'ADStore',
+                                                        anyMatch: true,
+                                                        queryMode: 'local',
+                                                        valueField: 'EMPLOYEEID',
+                                                        displayField: 'DISPLAYNAME'
+                                                    }, {
+                                                        xtype: 'datefield',
+                                                        fieldLabel: 'Planned Start Date',
+                                                        labelAlign: 'top',
+                                                        name: 'A_PLANNED_START',
+                                                        readOnly: (+userPermission > 2) ? true : false,
+                                                        value: getActionPSD(),
+                                                        colspan: 1,
+                                                        format: 'd/M/y',
+                                                        margin: '15 15 0 15',
+                                                        allowBlank: false,
+                                                    }, {
+                                                        xtype: 'datefield',
+                                                        fieldLabel: 'Planned End Date',
+                                                        labelAlign: 'top',
+                                                        name: 'A_PLANNED_END',
+                                                        readOnly: true,
+                                                        value: getActionPED(),
+                                                        colspan: 1,
+                                                        format: 'd/M/y',
+                                                        margin: '15 15 0 15',
+                                                        allowBlank: false,
+                                                    }, {
+                                                        xtype: 'datefield',
+                                                        fieldLabel: 'Forecast End Date',
+                                                        labelAlign: 'top',
+                                                        name: 'A_FORECAST_ENDDATE',
+                                                        readOnly: (actionStatus == 'On Going') ? ((+userPermission > 3) ? true : false) : true,
+                                                        value: getActionPFED(),
+                                                        colspan: 1,
+                                                        format: 'd/M/y',
+                                                        margin: '15 15 0 15',
+                                                        allowBlank: false,
+                                                        maxValue: Ext.Date.parse(Ext.getCmp('eventPlannedEndDateDisplay').getValue(), 'd/m/Y'),
+                                                        minValue: new Date(),
+                                                    }
+                                                ]
+                                            }, {
+                                                xtype: 'panel',
+                                                border: false,
+                                                layout: {
+                                                    type: 'table', columns: 1,
+                                                    tableAttrs: {
+                                                        style: {
+                                                            width: '100%'
+                                                        }
+                                                    }
+                                                },
+                                                items: [
+                                                    {
+                                                        xtype: 'textfield',
+                                                        fieldLabel: 'Plan',
+                                                        name: 'A_SHORT_DESCRIPTION',
+                                                        labelAlign: 'top',
+                                                        value: getActionSD(),
+                                                        enforceMaxLength: true,
+                                                        editable: (+userPermission > 2) ? false : true,
+                                                        maxLength: 100,
+                                                        width: 721,
+                                                        colspan: 1,
+                                                        margin: '15 15 15 15',
+                                                        allowBlank: false
+                                                    }]
+
+                                            }, {
+                                                xtype: 'panel',
+                                                border: false,
+                                                layout: {
+                                                    type: 'table', columns: 1,
+                                                    tableAttrs: {
+                                                        style: {
+                                                            width: '100%'
+                                                        }
+                                                    }
+                                                },
+                                                items: [
+                                                    {
+                                                        xtype: 'textareafield',
+                                                        fieldLabel: 'Long Description',
+                                                        name: 'A_LONG_DESCRIPTION',
+                                                        labelAlign: 'top',
+                                                        value: getActionLD(),
+                                                        enforceMaxLength: true,
+                                                        editable: (+userPermission > 2) ? false : true,
+                                                        maxLength: 400,
+                                                        maxLengthText: true,
+                                                        grow: true,
+                                                        colspan: 1,
+                                                        width: 721,
+                                                        height: 90,
+                                                        margin: '0 15 15 15',
+                                                        allowBlank: false
+                                                    }]
+                                            }]
+
+                                        }, {
+                                            xtype: 'panel',
+                                            columnWidth: 0.25,
+                                            width: 300,
+                                            border: false,
+                                            layout: {
+                                                type: 'fit',
+                                                align: 'stretch',
+                                                pack: 'begin'
+                                            },
+                                            header: {
+                                                titlePosition: 0,
+                                                title: 'Attachments',
+                                                items: [{
+                                                    xtype: 'button',
+                                                    buttonText: '',
+                                                    iconCls: 'attachIcon',
+                                                    hidden: (actionStatus == 'On Going') ? ((+userPermission > 3) ? true : false) : true,
+                                                    handler: function () {
+                                                        //debugger;
+                                                        var upldForm = new Ext.form.Panel({
+                                                            width: 300,
+                                                            //frame: true,
+                                                            bodyPadding: '10 10 0',
+                                                            defaults: {
+                                                                anchor: '100%',
+                                                                allowBlank: false,
+                                                                msgTarget: 'side',
+                                                                labelWidth: 50
+                                                            },
+                                                            items: [{
+                                                                xtype: 'filefield',
+                                                                id: 'form-file-plan',
+                                                                emptyText: 'Select a file',
+                                                                fieldLabel: 'File',
+                                                                name: 'file',
+                                                                buttonText: '',
+                                                                buttonConfig: {
+                                                                    iconCls: 'attachIcon'
+                                                                }
+                                                            }
+                                                            ],
+                                                            buttons: [{
+                                                                text: 'Save',
+                                                                handler: function () {
+                                                                    var form = this.up('form').getForm();
+                                                                    if (form.isValid()) {
+
+                                                                        form.submit({
+                                                                            url: '@ViewBag.UploadAttachmentController',
+                                                                            params: {
+                                                                                actionID: actionID
+                                                                            },
+                                                                            waitMsg: 'Uploading your file...',
+                                                                            success: function (form, o) {
+                                                                                //ReloadAttachmentsInStep(CurrentProtocolStep);
+                                                                                var dlg = Ext.Msg.show({
+                                                                                    title: 'Result',
+                                                                                    msg: o.result.result,
+                                                                                    buttons: Ext.Msg.OK,
+                                                                                    icon: Ext.Msg.INFO
+                                                                                });
+                                                                                Ext.StoreManager.lookup('attachmentStore').reload();
+                                                                                upldWindow.close();
+                                                                            },
+                                                                            failure: function (form, o) //(4)
+                                                                            {
+                                                                                var dlg = Ext.Msg.show({
+                                                                                    title: 'Result',
+                                                                                    msg: o.result.error,
+                                                                                    buttons: Ext.Msg.OK,
+                                                                                    icon: Ext.Msg.ERROR
+                                                                                });
+
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                }
+                                                            }, {
+                                                                text: 'Cancel',
+                                                                handler: function () {
+                                                                    upldWindow.close()
+                                                                }
+                                                            }]
+                                                        });
+
+                                                        var upldWindow = new Ext.Window({
+                                                            title: 'Add Attachment',
+                                                            width: 300,
+                                                            height: 100,
+                                                            plain: true,
+                                                            layout: 'fit',
+                                                            closeAction: 'destroy',
+                                                            maximizable: false,
+                                                            constrainHeader: true,
+                                                            modal: true,
+                                                            items: [upldForm]
+                                                        }).show();
+
+
+                                                    }
+                                                }, {
+                                                    xtype: 'button',
+                                                    iconCls: 'xIcon',
+                                                    hidden: (actionStatus == 'On Going') ? ((+userPermission > 3) ? true : false) : true,
+                                                    handler: function () {
+
+                                                        function RemoveAttachment() {
+                                                            //debugger;
+                                                            var remdWindow;
+
+                                                            remdWindow = new Ext.Window({
+                                                                title: 'Remove Attachments',
+                                                                width: 300,
+                                                                height: 200,
+                                                                plain: true,
+                                                                layout: 'fit',
+                                                                closeAction: 'destroy',
+                                                                maximizable: false,
+                                                                constrainHeader: true,
+                                                                modal: true,
+                                                                items: [{
+                                                                    xtype: 'grid',
+                                                                    columnLines: true,
+                                                                    flex: 1,
+                                                                    selType: 'checkboxmodel',
+                                                                    id: 'removeGridPlan',
+                                                                    store: Ext.StoreManager.lookup('attachmentStore'),
+                                                                    scroll: true,
+                                                                    padding: "0 0 0 0",
+                                                                    hideHeaders: true,
+                                                                    height: 100,
+                                                                    columns: [{
+                                                                        flex: 10,
+                                                                        text: 'File',
+                                                                        dataIndex: 'NAME',
+                                                                        sortable: true,
+                                                                        hideable: false
+                                                                    }]
+                                                                }],
+                                                                tbar: [{
+                                                                    text: 'Remove',
+                                                                    iconCls: 'ico-deleteattachment',
+                                                                    handler: function () {
+                                                                        //debugger;
+                                                                        var selection = Ext.getCmp('removeGridPlan').getSelectionModel().getSelection();
+                                                                        if (selection.length == 0)
+                                                                            return;
+                                                                        else {
+                                                                            if (selection.length > 1) {
+                                                                                alert('Selected Items: ' + selection.length);
+                                                                            }
+                                                                        }
+                                                                        var selItems = 0;
+                                                                        var infoArray = new Array();
+                                                                        A_ID = actionID;
+                                                                        Ext.each(selection, function (val) {
+                                                                            //debugger;
+                                                                            var txt = val.data.NAME;
+                                                                            if (txt.length > 0) {
+                                                                                //selectedValues = selectedValues + txt + ';';
+                                                                                infoArray.push(txt + ';' + A_ID);
+                                                                                selItems = selItems + 1;
+                                                                            }
+                                                                        });
+                                                                        if (selItems > 0) {
+                                                                            //debugger;
+                                                                            Ext.Ajax.request({
+
+                                                                                url: '@ViewBag.RemoveAttachmentController',
+                                                                                method: 'POST',
+                                                                                params: {
+                                                                                    infoArray: infoArray,
+                                                                                },
+
+                                                                                success: function () {
+                                                                                    Ext.Msg.alert('Action Management Tool', 'Attachment(s) has been deleted');
+                                                                                    Ext.StoreManager.lookup('attachmentStore').reload();
+                                                                                    remdWindow.close();
+                                                                                }
+                                                                            });
+                                                                        }
+                                                                    }
+                                                                }, '->', {
+                                                                    text: 'Close',
+                                                                    iconCls: 'ico-close',
+                                                                    handler: function () {
+                                                                        remdWindow.close()
+                                                                    }
+                                                                }]
+                                                            }).show();
+                                                        }
+                                                        RemoveAttachment()
+                                                    }
+                                                }
+                                                ]
+                                            },
+                                            items: [{
+                                                border: false,
+                                                xtype: 'grid',
+                                                id: 'planAttachmentGrid',
+                                                emptyText: 'No files',
+                                                store: Ext.StoreManager.lookup('attachmentStore'),
+                                                flex: 1,
+                                                columns: [
+                                                    { text: 'File', flex: 1, dataIndex: 'NAME' },
+                                                ],
+                                                listeners: {
+                                                    itemdblclick: function (grid, record, item, index, e, eOpts) {
+                                                        //debugger;
+                                                        DownloadAttachment(record.data.PATH)
+
+
+                                                    }
+                                                }
+                                            }]
+                                        }]
+                                    }, {
+                                        xtype: 'panel',
+                                        layout: {
+                                            type: 'fit',
+                                            align: 'stretch',
+                                            pack: 'begin'
+                                        },
+                                        scrollable: true,
+                                        flex: 1,
+                                        border: false,
+                                        header: {
+                                            titlePosition: 0,
+                                            title: 'Updates',
+                                            items: [{
+                                                xtype: 'button',
+                                                id: 'addUpdateActionGroupButton',
+                                                hidden: (actionStatus == 'On Going') ? ((+userPermission > 3) ? true : false) : true,
+                                                text: 'Add',
+                                                handler: function () {
+                                                    //debugger;
+                                                    Ext.create('Ext.window.Window', {
+                                                        layout: 'fit',
+                                                        modal: true,
+                                                        id: 'addUpdateActionGroupWindow',
+                                                        flex: 1,
+                                                        title: 'Add Update',
+                                                        closable: true,
+                                                        resizable: false,
+                                                        items: [{
+                                                            xtype: 'form',
+                                                            id: 'addUpdateActionGroupForm',
+                                                            items: [{
+                                                                xtype: 'panel',
+                                                                border: false,
+                                                                layout: {
+                                                                    type: 'table', columns: 1,
+                                                                    tableAttrs: {
+                                                                        style: {
+                                                                            width: '100%'
+                                                                        }
+                                                                    }
+                                                                },
+                                                                items: [{
+                                                                    xtype: 'textareafield',
+                                                                    fieldLabel: 'Update',
+                                                                    name: 'LAST_UPDATE',
+                                                                    colspan: 1,
+                                                                    allowBlank: false,
+                                                                    margin: '15 15 15 15',
+                                                                    enforceMaxLength: true,
+                                                                    maxLength: 2000,
+                                                                    width: 690,
+                                                                    height: 350,
+                                                                }],
+
+
+
+                                                            }],
+                                                            buttons: [{
+                                                                text: 'Cancel',
+                                                                handler: function () {
+                                                                    Ext.getCmp('addUpdateActionGroupForm').getForm().reset();
+                                                                }
+                                                            }, {
+                                                                text: 'Submit',
+                                                                formBind: true,
+                                                                handler: function () {
+                                                                    //debugger;
+                                                                    var addUpdateForm = Ext.getCmp('addUpdateActionGroupForm');
+                                                                    var updateFormData = addUpdateForm.getValues();
+                                                                    var addUpdateArray = new Array();
+                                                                    addUpdateArray[0] = actionID;
+                                                                    addUpdateArray[1] = updateFormData.LAST_UPDATE;
+                                                                    addUpdateArray[2] = updateFormData.LU_ACCOMPLISHMENT;
+                                                                    addUpdateArray[3] = userDisplayName;
+
+                                                                    Ext.Ajax.request({
+                                                                        url: '@ViewBag.updateAction',
+                                                                        method: 'POST',
+                                                                        params: {
+                                                                            addUpdateArray: addUpdateArray
+                                                                        },
+
+                                                                        success: function () {
+
+                                                                            Ext.StoreManager.lookup('treeStoreAction').load()
+                                                                            Ext.StoreManager.lookup('lastUpdateStore').load()
+                                                                            Ext.Msg.alert('Action Management Tool', 'Plan has been updated');
+                                                                            Ext.getCmp('addUpdateActionGroupWindow').destroy();
+                                                                        }
+
+                                                                    })
+                                                                }
+                                                            }]
+                                                        }]
+                                                    }).show();
+                                                }
+                                            }]
+                                        },
+
+                                        items: [
+                                            {
+                                                border: false,
+                                                xtype: 'grid',
+                                                emptyText: 'No data',
+                                                flex: 1,
+                                                id: 'lastUpdateGrid',
+                                                store: Ext.StoreManager.lookup('lastUpdateStore'),
+                                                columns: [
+                                                    { text: 'Last Update', dataIndex: 'LAST_UPDATE', flex: 0.7 },
+                                                    { text: 'Timestamp', dataIndex: 'LAST_UPDATE_DATE', flex: 0.15 },
+                                                    { text: 'Owner', dataIndex: 'UPDATE_OWNER', flex: 0.15 },
+                                                ],
+                                                listeners: {
+                                                    celldblclick: function (grid, td, cellIndex, record, tr, rowIndex, e, eOpts) {
+                                                        //debugger;
+                                                        Ext.create('Ext.window.Window', {
+                                                            layout: 'fit',
+                                                            modal: true,
+                                                            id: 'openFullUpdateActionGroupWindow',
+                                                            flex: 1,
+                                                            title: 'Update',
+                                                            closable: true,
+                                                            resizable: false,
+                                                            items: [{
+                                                                xtype: 'form',
+                                                                id: 'openUpdateActionGroupForm',
+                                                                items: [{
+                                                                    xtype: 'panel',
+                                                                    border: false,
+                                                                    layout: {
+                                                                        type: 'table', columns: 1,
+                                                                        tableAttrs: {
+                                                                            style: {
+                                                                                width: '100%'
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    items: [{
+                                                                        xtype: 'textareafield',
+                                                                        fieldLabel: 'Update',
+                                                                        name: 'LAST_UPDATE',
+                                                                        colspan: 1,
+                                                                        value: record.data.LAST_UPDATE,
+                                                                        editable: false,
+                                                                        allowBlank: false,
+                                                                        margin: '15 15 15 15',
+                                                                        enforceMaxLength: true,
+                                                                        maxLength: 2000,
+                                                                        width: 690,
+                                                                        height: 350,
+                                                                    }],
+
+
+
+                                                                }],
+                                                            }]
+                                                        }).show();
+                                                    }
+                                                }
+
+                                            }
+                                        ]
+                                    }],
+
+
+                                    buttons: [{
+                                        id: 'draftActionGroupButton',
+                                        text: 'Assign',
+                                        hidden: (actionStatus == 'Draft') ? ((+userPermission > 2) ? true : false) : ((actionStatus == 'Rejected') ? ((+userPermission > 2) ? true : false) : true),
+                                        handler: function () {
+
+                                            var draftArray = new Array();
+                                            draftArray[0] = actionID;
+
+                                            Ext.Ajax.request({
+                                                url: '@ViewBag.draftStatus',
+                                                method: 'POST',
+                                                params: {
+                                                    draftArray: draftArray
+                                                },
+
+                                                success: function () {
+                                                    Ext.getStore('treeStoreAction').reload();
+                                                    Ext.Msg.alert('Action Management Tool', 'Plan has been assigned');
+                                                    Ext.getCmp('manageActionGroupWindow').destroy();
+                                                }
+
+                                            })
+                                        }
+                                    }, {
+                                        id: 'acknowledgeActionGroupButton',
+                                        text: 'Accept',
+                                        hidden: (actionStatus == 'Assigned') ? ((ownerID == employeeID) ? false : true) : true,
+                                        handler: function () {
+
+                                            var startActionArray = new Array();
+                                            startActionArray[0] = actionID;
+
+                                            Ext.Ajax.request({
+                                                url: '@ViewBag.startActionStatus',
+                                                method: 'POST',
+                                                params: {
+                                                    startActionArray: startActionArray
+                                                },
+
+                                                success: function () {
+                                                    Ext.getStore('treeStoreAction').reload();
+                                                    Ext.Msg.alert('Action Management Tool', 'Plan has been accepted');
+                                                    Ext.getCmp('manageActionGroupWindow').destroy();
+                                                }
+
+                                            })
+                                        }
+                                    }, {
+                                        id: 'denyActionGroupButton',
+                                        text: 'Reject',
+                                        hidden: (actionStatus == 'Assigned') ? ((ownerID == employeeID) ? false : true) : true,
+                                        handler: function () {
+
+                                            var denyArray = new Array();
+                                            denyArray[0] = actionID;
+
+                                            Ext.Ajax.request({
+                                                url: '@ViewBag.denyAction',
+                                                method: 'POST',
+                                                params: {
+                                                    denyArray: denyArray
+                                                },
+
+                                                success: function () {
+                                                    Ext.getStore('treeStoreAction').reload();
+                                                    Ext.Msg.alert('Action Management Tool', 'Plan has been rejected');
+                                                    Ext.getCmp('manageActionGroupWindow').destroy();
+                                                }
+
+                                            })
+                                        }
+                                    }, {
+                                        id: 'closeActionGroupButton',
+                                        text: 'Close',
+                                        hidden: (actionStatus == 'Concluded') ? ((userPermission < 3) ? false : true) : true,
+                                        handler: function () {
+
+                                            var closeActionArray = new Array();
+                                            closeActionArray[0] = actionID;
+
+                                            Ext.Ajax.request({
+                                                url: '@ViewBag.closeAction',
+                                                method: 'POST',
+                                                params: {
+                                                    closeActionArray: closeActionArray
+                                                },
+
+                                                success: function () {
+                                                    Ext.getStore('treeStoreAction').reload();
+                                                    Ext.Msg.alert('Action Management Tool', 'Plan has been closed');
+                                                }
+
+                                            })
+                                        }
+                                    }, {
+                                        text: 'Cancel',
+                                        hidden: (actionStatus == 'On Going') ? ((+userPermission > 3) ? true : false) : ((actionStatus == 'Draft') ? ((+userPermission > 3) ? true : false) : true),
+                                        handler: function () {
+                                            Ext.getCmp('editActionGroupForm').getForm().reset();
+                                        }
+                                    },
+                                    {
+                                        text: 'Submit',
+                                        formBind: true, //only enabled once the form is valid
+                                        hidden: (actionStatus == 'On Going') ? ((+userPermission > 3) ? true : false) : ((actionStatus == 'Draft') ? ((+userPermission > 3) ? true : false) : true),
+                                        //hidden: (actionStatus == 'On Going') ? ((+userPermission > 3) ? true : false) : true,
+                                        handler: function () {
+                                            //debugger;
+                                            var editActionGroupForm = Ext.getCmp('editActionGroupForm');
+                                            var editActionGroupValues = editActionGroupForm.getValues();
+                                            var oldActionGroupData = treeStoreAction.findRecord('A_ID', actionID);
+
+                                            ADStore.filter('EMPLOYEEID', oldActionGroupData.data.A_OWNER);
+                                            var oldDisplayName = ADStore.getData().items[0].data.DISPLAYNAME;
+                                            ADStore.clearFilter()
+
+                                            var actionGroupDataArray = new Array();
+                                            actionGroupDataArray[0] = actionID;
+                                            actionGroupDataArray[1] = oldActionGroupData.data.A_OWNER;
+                                            actionGroupDataArray[2] = oldActionGroupData.data.A_SHORT_DESCRIPTION;
+                                            actionGroupDataArray[3] = oldActionGroupData.data.A_LONG_DESCRIPTION;
+                                            actionGroupDataArray[4] = oldActionGroupData.data.A_PLANNED_START;
+                                            actionGroupDataArray[5] = oldActionGroupData.data.A_FORECAST_ENDDATE;
+                                            actionGroupDataArray[6] = oldDisplayName;
+
+                                            ADStore.filter('EMPLOYEEID', editActionGroupValues.A_OWNER);
+                                            var editDisplayName = ADStore.getData().items[0].data.DISPLAYNAME;
+                                            ADStore.clearFilter()
+
+                                            var editActionGroupArray = new Array();
+                                            editActionGroupArray[0] = actionID;
+                                            editActionGroupArray[1] = editActionGroupValues.A_OWNER;
+                                            editActionGroupArray[2] = editActionGroupValues.A_SHORT_DESCRIPTION;
+                                            editActionGroupArray[3] = editActionGroupValues.A_LONG_DESCRIPTION;
+                                            editActionGroupArray[4] = editActionGroupValues.A_PLANNED_START;
+                                            editActionGroupArray[5] = editActionGroupValues.A_FORECAST_ENDDATE;
+                                            editActionGroupArray[6] = editDisplayName;
+                                            editActionGroupArray[7] = userDisplayName;
+
+                                            Ext.Ajax.request({
+                                                url: '@ViewBag.editActionGroup',
+                                                method: 'POST',
+                                                params: {
+                                                    editActionGroupArray: editActionGroupArray,
+                                                    actionGroupDataArray: actionGroupDataArray
+                                                },
+
+                                                success: function () {
+                                                    Ext.StoreManager.lookup('lastUpdateStore').reload();
+                                                    Ext.getStore('treeStoreAction').reload();
+                                                    Ext.Msg.alert('Action Management Tool', 'Plan has been edited');
+                                                }
+
+                                            })
+
+                                        }
+
+                                    }
+
+                                    ]
+
+                                },
+
+                                ]
+                            }).show();
+                        }
+
+
+                }, {
+                    xtype: 'button',
+                    id: 'deleteactiongroupbutton',
+                    hidden: (+userPermission > 2) ? true : false,
+                    text: 'Delete Plan',
+                    disabled: true,
+                        handler: function () {
+                            actionID = getActionID()
+                            ownerID = Ext.getCmp('treePanel1').getSelection()[0].get('A_OWNER')
+                            var deleteGroupArray = new Array();
+                            deleteGroupArray[0] = actionID;
+                            Ext.Ajax.request({
+                                url: '@ViewBag.deleteActionGroup',
+                                method: 'POST',
+                                params: {
+                                    deleteGroupArray: deleteGroupArray
+                                },
+
+                                success: function () {
+                                    Ext.getStore('treeStoreAction').reload();
+                                    Ext.Msg.alert('Action Management Tool', 'Action Group has been deleted');
+                                }
+
+                            })
+                        }
+                }, {
+
+                    xtype: 'button',
+                    id: 'newactionbutton',
+                    text: 'New Action',
+                    hidden: (+userPermission > 3) ? true : false,
+                    disabled: true,
+                        handler: function () {
+                            //debugger;
+                            actionID = getActionID(),
+
+                            Ext.create('Ext.window.Window', {
+                                layout: 'fit',
+                                id: 'newActionWindow',
+                                modal: true,
+                                flex: 1,
+                                resizable: false,
+                                title: 'New Action',
+                                closable: true,
+                                scrollable: true,
+                                items: [{
+                                    id: 'actionForm',
+                                    defaultType: 'textfield',
+                                    xtype: 'form',
+                                    layout: 'vbox',
+                                    items: [{
+                                        xtype: 'panel',
+                                        columnWidth: 0.3,
+                                        border: false,
+                                        layout: {
+                                            type: 'table', columns: 4,
+                                            tableAttrs: {
+                                                style: {
+                                                    width: '100%'
+                                                }
+                                            }
+                                        },
+                                        items: [
+                                            {
+                                                xtype: 'textfield',
+                                                fieldLabel: 'Plan Identification',
+                                                labelAlign: 'top',
+                                                margin: '15 15 0 15',
+                                                colspan: 1,
+                                                value: getActionID(),
+                                            }, {
+                                                xtype: 'combobox',
+                                                fieldLabel: 'Action Owner',
+                                                labelAlign: 'top',
+                                                margin: '15 15 0 15',
+                                                name: 'A_OWNER',
+                                                colspan: 1,
+                                                allowBlank: false,
+                                                store: 'ADStore',
+                                                colspan: 1,
+                                                anyMatch: true,
+                                                queryMode: 'local',
+                                                valueField: 'EMPLOYEEID',
+                                                displayField: 'DISPLAYNAME'
+                                            }, {
+                                                xtype: 'datefield',
+                                                fieldLabel: 'Planned Start Date',
+                                                labelAlign: 'top',
+                                                name: 'A_PLANNED_START',
+                                                format: 'd/M/y',
+                                                margin: '15 15 0 15',
+                                                colspan: 1,
+                                                allowBlank: false,
+                                                maxValue: Ext.Date.parse((treeStoreAction.findRecord('A_ID', actionID).data.A_FORECAST_ENDDATE != treeStoreAction.findRecord('A_ID', actionID).data.A_PLANNED_END) ? (treeStoreAction.findRecord('A_ID', actionID).data.A_FORECAST_ENDDATE) : (treeStoreAction.findRecord('A_ID', actionID).data.A_PLANNED_END), 'd/m/Y'),
+                                                minValue: new Date(),
+                                            }, {
+                                                xtype: 'datefield',
+                                                fieldLabel: 'Planned End Date',
+                                                labelAlign: 'top',
+                                                name: 'A_PLANNED_END',
+                                                format: 'd/M/y',
+                                                margin: '15 15 0 15',
+                                                colspan: 1,
+                                                allowBlank: false,
+                                                maxValue: Ext.Date.parse((treeStoreAction.findRecord('A_ID', actionID).data.A_FORECAST_ENDDATE != treeStoreAction.findRecord('A_ID', actionID).data.A_PLANNED_END) ? (treeStoreAction.findRecord('A_ID', actionID).data.A_FORECAST_ENDDATE) : (treeStoreAction.findRecord('A_ID', actionID).data.A_PLANNED_END), 'd/m/Y'),
+                                                minValue: new Date(),
+                                            }]
+                                    }, {
+                                        xtype: 'panel',
+                                        border: false,
+                                        layout: {
+                                            type: 'table', columns: 1,
+                                            tableAttrs: {
+                                                style: {
+                                                    width: '100%'
+                                                }
+                                            }
+                                        },
+                                        items: [
+                                            {
+                                                xtype: 'textfield',
+                                                fieldLabel: 'Action',
+                                                name: 'A_SHORT_DESCRIPTION',
+                                                labelAlign: 'top',
+                                                enforceMaxLength: true,
+                                                maxLength: 100,
+                                                width: 690,
+                                                colspan: 1,
+                                                margin: '15 15 15 15',
+                                                allowBlank: false
+                                            }]
+                                    }, {
+                                        xtype: 'panel',
+                                        border: false,
+                                        layout: {
+                                            type: 'table', columns: 1,
+                                            tableAttrs: {
+                                                style: {
+                                                    width: '100%'
+                                                }
+                                            }
+                                        },
+                                        items: [
+                                            {
+                                                xtype: 'textareafield',
+                                                fieldLabel: 'Long Description',
+                                                name: 'A_LONG_DESCRIPTION',
+                                                labelAlign: 'top',
+                                                enforceMaxLength: true,
+                                                maxLength: 400,
+                                                maxLengthText: true,
+                                                grow: true,
+                                                colspan: 1,
+                                                width: 690,
+                                                height: 90,
+                                                margin: '0 15 15 15',
+                                                allowBlank: false
+                                            }]
+                                    }],
+
+                                    buttons: [{
+                                        text: 'Cancel',
+                                        handler: function () {
+                                            Ext.getCmp('actionForm').getForm().reset();
+                                        }
+                                    }, {
+                                        text: 'Submit',
+                                        formBind: true, //only enabled once the form is valid
+
+                                        handler: function () {
+                                            //debugger;
+                                            var actionForm = Ext.getCmp('actionForm');
+                                            var actionFormData = actionForm.getValues();
+                                            var actionArray = new Array();
+                                            actionArray[0] = getActionID();
+                                            actionArray[1] = actionFormData.A_OWNER;
+                                            actionArray[2] = actionFormData.A_SHORT_DESCRIPTION;
+                                            actionArray[3] = actionFormData.A_LONG_DESCRIPTION;
+                                            actionArray[4] = actionFormData.A_PLANNED_START;
+                                            actionArray[5] = actionFormData.A_PLANNED_END;
+
+                                            Ext.Ajax.request({
+                                                url: '@ViewBag.createAction',
+                                                method: 'POST',
+                                                params: {
+                                                    actionArray: actionArray
+                                                },
+
+                                                callback: function (options, success, response) {
+                                                    //debugger;
+                                                    var resp = Ext.JSON.decode(response.responseText);
+                                                    //Ext.getStore('treeStoreAction').reload();
+                                                    //Ext.Msg.alert('Action Management Tool', 'Action has been added');
+                                                    if (resp.sucess == true) {
+
+                                                        Ext.create('Ext.window.Window', {
+                                                            layout: 'fit',
+                                                            modal: true,
+                                                            id: 'newweightwindow',
+                                                            flex: 1,
+                                                            resizable: false,
+                                                            header: {
+                                                                titlePosition: 0,
+                                                                title: 'Manage Weight',
+                                                                items: [{
+                                                                    xtype: 'panel',
+                                                                    id: 'actionsweightprogressbarlocation',
+                                                                    width: 200,
+                                                                }]
+                                                            },
+                                                            closable: false,
+                                                            scrollable: true,
+                                                            items: [{
+                                                                xtype: 'panel',
+                                                                id: 'weightactiongrouppanel',
+                                                                layout: 'vbox',
+
+                                                            }],
+                                                            buttons: [{
+                                                                text: 'Submit',
+                                                                handler: function () {
+
+                                                                    var weightArray = []
+                                                                    Ext.Array.each(Ext.getCmp('weightactiongrouppanel').items.items, function (data) {
+                                                                        //debugger;
+                                                                        var parameters = new Array();
+                                                                        parameters[0] = data.items.items[0].fieldLabel;
+                                                                        parameters[1] = data.items.items[0].value;
+
+                                                                        weightArray.push(parameters)
+
+                                                                    })
+
+                                                                    Ext.Ajax.request({
+                                                                        url: '@ViewBag.updateWeights',
+                                                                        method: 'POST',
+                                                                        params: {
+                                                                            weightArray: weightArray
+                                                                        },
+
+                                                                        success: function () {
+
+                                                                            Ext.getCmp('newweightwindow').destroy();
+                                                                            Ext.getCmp('newActionWindow').destroy();
+                                                                            Ext.Msg.alert('Action Management Tool', 'Action has been created');
+                                                                            Ext.getStore('treeStoreAction').reload();
+                                                                        }
+                                                                    })
+                                                                }
+
+                                                            }]
+
+                                                        }).show();
+
+                                                        var actionInfoArray = new Array();
+                                                        actionInfoArray[0] = actionID;
+
+                                                        Ext.Ajax.request({
+                                                            url: '@ViewBag.getActionsforWeight',
+                                                            method: 'POST',
+                                                            params: {
+                                                                actionInfoArray: actionInfoArray
+                                                            },
+
+                                                            callback: function (options, success, response) {
+                                                                //debugger;
+                                                                var resp = Ext.JSON.decode(response.responseText);
+                                                                var panelweightadd = [];
+                                                                var data = '{';
+                                                                var formula = '{';
+                                                                var datavalue = [];
+
+                                                                Ext.Array.each(resp.items, function (value) {
+                                                                    //debugger;
+                                                                    data += value.A_ID.replace(/\+|\-/ig, '_') + ':' + value.A_WEIGHT;
+                                                                    formula += "f" + value.A_ID.replace(/\+|\-/ig, '_') + ": '{" + value.A_ID.replace(/\+|\-/ig, '_') + "}'";
+                                                                    datavalue.push('data.f' + value.A_ID.replace(/\+|\-/ig, '_'));
+
+                                                                    try {
+                                                                        panelweightadd.push(
+                                                                            {
+                                                                                xtype: 'panel',
+                                                                                flex: 1,
+                                                                                layout: 'column',
+                                                                                id: 'sliderform' + value.A_ID,
+                                                                                items: [{
+                                                                                    xtype: 'numberfield',
+                                                                                    value: value.A_WEIGHT,
+                                                                                    fieldLabel: value.A_ID,
+                                                                                    value: value.A_WEIGHT,
+                                                                                    minValue: 0,
+                                                                                    maxValue: 100,
+                                                                                    margin: '15 15 15 15',
+                                                                                    bind: '{' + value.A_ID.replace(/\+|\-/ig, '_') + '}',
+                                                                                    listeners: {
+                                                                                        change: function (e, newValue, oldValue) {
+                                                                                            //debugger;
+                                                                                            var maxValue = 100;
+                                                                                            actualTotalValue = (Ext.getCmp('weightpanelprogressbar').getValue()) * 100
+                                                                                            diff = newValue - oldValue;
+                                                                                            if (maxValue < (actualTotalValue + diff)) e.setValue(oldValue);
+                                                                                        }
+                                                                                    }
+                                                                                }, {
+                                                                                    xtype: 'panel',
+                                                                                    layout: 'fit',
+                                                                                    margin: '15 15 15 15',
+                                                                                    border: false,
+                                                                                    items: [{
+                                                                                        xtype: 'slider',
+                                                                                        width: 200,
+                                                                                        value: value.A_WEIGHT,
+                                                                                        increment: 1,
+                                                                                        minValue: 0,
+                                                                                        maxValue: 100,
+                                                                                        readOnly: true,
+                                                                                        bind: '{' + value.A_ID.replace(/\+|\-/ig, '_') + '}',
+                                                                                        listeners: {
+                                                                                            beforechange: function (e, newValue, oldValue) {
+                                                                                                //debugger;
+                                                                                                if (Ext.getCmp('weightpanelprogressbar') != undefined) {
+                                                                                                    var maxValue = 100;
+                                                                                                    actualTotalValue = (Ext.getCmp('weightpanelprogressbar').getValue()) * 100
+                                                                                                    diff = newValue - oldValue;
+                                                                                                    if (maxValue < (actualTotalValue + diff)) return false;
+                                                                                                }
+                                                                                            },
+                                                                                            change: function (a, newValue, oldValue) {
+                                                                                                //debugger;
+                                                                                                if (Ext.getCmp('weightpanelprogressbar') != undefined) {
+
+                                                                                                    var maxValue = 100;
+                                                                                                    actualTotalValue = (Ext.getCmp('weightpanelprogressbar').getValue()) * 100
+                                                                                                    diff = newValue - oldValue;
+                                                                                                    if (maxValue < (actualTotalValue + diff)) return false;
+
+                                                                                                    if (Ext.getCmp('weightpanelprogressbar').getValue == 1) {
+                                                                                                        a.setDisabled(true)
+                                                                                                    }
+                                                                                                    else {
+                                                                                                        a.setDisabled(false)
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+
+                                                                                        }
+                                                                                    }]
+                                                                                }],
+
+                                                                            })
+                                                                    } catch (e) {
+                                                                        debugger;
+                                                                    }
+
+                                                                    data += ', ';
+                                                                    formula += ', ';
+
+                                                                });
+
+                                                                data += '}';
+                                                                formula += '}';
+                                                                var viewmodel = '{data:' + data + ', formulas: {sumAllValues: {bind:' + formula + ', get: function (data) {return ( ' + ((datavalue.join('+')) + ' )/100') + ';}}}}';
+                                                                var viewModelObject = Ext.JSON.decode(viewmodel);
+                                                                try {
+                                                                    //debugger;
+                                                                    Ext.getCmp('newweightwindow').setViewModel(viewModelObject);
+                                                                } catch (e) {
+                                                                    debugger;
+                                                                }
+                                                                //debugger;
+                                                                Ext.getCmp('weightactiongrouppanel').add(panelweightadd);
+
+                                                                Ext.getCmp('actionsweightprogressbarlocation').add({
+                                                                    xtype: 'progressbar',
+                                                                    id: 'weightpanelprogressbar',
+                                                                    bind: '{sumAllValues}',
+                                                                    flex: 1,
+                                                                });
+                                                            }
+                                                        })
+
+                                                    }
+                                                    else {
+                                                        Ext.Msg.alert('Action Management Tool', resp.statusText);
+                                                    }
+                                                }
+                                            })
+
+                                        }
+
+                                    }
+
+                                    ]
+                                },
+
+                                ]
+                            }).show();
+                        }
+
+
+                    },
+                    {
+
+                        xtype: 'button',
+                        id: 'editactionbutton',
+                        text: 'Manage Action',
+                        disabled: true,
+                        handler: function () {
+
+                            actionID = getActionID();
+                            ownerID = Ext.getCmp('treePanel1').getSelection()[0].get('A_OWNER');
+                            actionStatus = getActionStatus();
+                            //debugger;
+                            Ext.StoreManager.lookup('lastUpdateStore').proxy.setExtraParams({
+                                A_ID: getActionID()
+                            })
+                            Ext.StoreManager.lookup('lastUpdateStore').load()
+                            Ext.StoreManager.lookup('attachmentStore').proxy.setExtraParams({
+                                A_ID: getActionID()
+                            })
+                            Ext.StoreManager.lookup('attachmentStore').load()
+
+                            Ext.create('Ext.window.Window', {
+                                layout: 'fit',
+                                modal: true,
+                                id: 'editactionwindow',
+                                //flex: 1,
+                                height: 500,
+                                width: 1034,
+                                resizable: false,
+                                header: {
+                                    titlePosition: 0,
+                                    title: 'Manage Action',
+                                    items: [{
+                                        xtype: 'displayfield',
+                                        id: 'manageActionTitleDisplayField',
+                                        value: 'Status: ' + actionStatus,
+                                        fieldCls: 'titleDisplay'
+                                    }]
+                                },
+                                closable: true,
+                                scrollable: true,
+                                items: [{
+                                    id: 'editActionForm',
+                                    defaultType: 'textfield',
+                                    xtype: 'form',
+                                    flex: 1,
+                                    border: false,
+                                    layout: {
+                                        type: 'vbox',
+                                        align: 'stretch',
+                                        pack: 'begin'
+                                    },
+                                    items: [{
+                                        xtype: 'panel',
+                                        border: false,
+                                        layout: {
+                                            type: 'column',
+                                            align: 'stretch'
+                                        },
+                                        items: [{
+                                            xtype: 'panel',
+                                            columnWidth: 0.75,
+                                            width: 734,
+                                            layout: {
+                                                type: 'vbox',
+                                                align: 'stretch'
+                                            },
+
+                                            items: [{
+                                                xtype: 'panel',
+                                                border: false,
+                                                layout: {
+                                                    type: 'table', columns: 4,
+                                                    tableAttrs: {
+                                                        style: {
+                                                            width: '100%'
+                                                        }
+                                                    }
+                                                },
+                                                items: [
+                                                    {
+                                                        xtype: 'combobox',
+                                                        valueField: 'EMPLOYEEID',
+                                                        displayField: 'DISPLAYNAME',
+                                                        fieldLabel: 'Plan Owner',
+                                                        id: 'actionOwnerCombo',
+                                                        readOnly: (+userPermission > 3) ? true : false,
+                                                        store: 'ADStore',
+                                                        value: ownerID,
+                                                        allowBlank: false,
+                                                        anyMatch: true,
+                                                        queryMode: 'local',
+                                                        labelAlign: 'top',
+                                                        name: 'A_OWNER',
+                                                        colspan: 1,
+                                                        margin: '15 15 0 15',
+                                                    }, {
+                                                        xtype: 'datefield',
+                                                        fieldLabel: 'Planned Start Date',
+                                                        name: 'A_PLANNED_START',
+                                                        readOnly: (+userPermission > 3) ? true : false,
+                                                        value: getActionPSD(),
+                                                        labelAlign: 'top',
+                                                        format: 'd/M/y',
+                                                        margin: '15 15 0 15',
+                                                        colspan: 1,
+                                                        allowBlank: false,
+                                                        maxValue: Ext.Date.parse((treeStoreAction.findRecord('A_ID', actionID).parentNode.data.A_FORECAST_ENDDATE != treeStoreAction.findRecord('A_ID', actionID).parentNode.data.A_PLANNED_END) ? (treeStoreAction.findRecord('A_ID', actionID).parentNode.data.A_FORECAST_ENDDATE) : (treeStoreAction.findRecord('A_ID', actionID).parentNode.data.A_PLANNED_END), 'd/m/Y'),
+                                                        minValue: new Date(),
+                                                    }, {
+                                                        xtype: 'datefield',
+                                                        fieldLabel: 'Planned End Date',
+                                                        name: 'A_PLANNED_END',
+                                                        value: getActionPED(),
+                                                        labelAlign: 'top',
+                                                        format: 'd/M/y',
+                                                        margin: '15 15 0 15',
+                                                        colspan: 1,
+                                                        readOnly: true
+
+                                                    }, {
+                                                        xtype: 'datefield',
+                                                        fieldLabel: 'Forecast End Date',
+                                                        name: 'A_FORECAST_ENDDATE',
+                                                        readOnly: (+userPermission == '5') ? true : false,
+                                                        value: getActionPFED(),
+                                                        labelAlign: 'top',
+                                                        format: 'd/M/y',
+                                                        margin: '15 15 0 15',
+                                                        colspan: 1,
+                                                        allowBlank: false,
+                                                        maxValue: Ext.Date.parse((treeStoreAction.findRecord('A_ID', actionID).parentNode.data.A_FORECAST_ENDDATE != treeStoreAction.findRecord('A_ID', actionID).parentNode.data.A_PLANNED_END) ? (treeStoreAction.findRecord('A_ID', actionID).parentNode.data.A_FORECAST_ENDDATE) : (treeStoreAction.findRecord('A_ID', actionID).parentNode.data.A_PLANNED_END), 'd/m/Y'),
+                                                        minValue: new Date(),
+                                                    }]
+                                            }, {
+                                                xtype: 'panel',
+                                                columnWidth: 0.7,
+                                                border: false,
+                                                layout: {
+                                                    type: 'table', columns: 2,
+                                                    tableAttrs: {
+                                                        style: {
+                                                            width: '100%'
+                                                        }
+                                                    }
+                                                },
+                                                items: [
+                                                    {
+                                                        xtype: 'textfield',
+                                                        fieldLabel: 'Action',
+                                                        name: 'A_SHORT_DESCRIPTION',
+                                                        value: getActionSD(),
+                                                        labelAlign: 'top',
+                                                        editable: (+userPermission > 4) ? false : true,
+                                                        colspan: 1,
+                                                        enforceMaxLength: true,
+                                                        maxLength: 100,
+                                                        width: 721,
+                                                        margin: '15 15 15 15',
+                                                        allowBlank: false
+                                                    }]
+                                            }, {
+                                                xtype: 'panel',
+                                                border: false,
+                                                layout: {
+                                                    type: 'table', columns: 1,
+                                                    tableAttrs: {
+                                                        style: {
+                                                            width: '100%'
+                                                        }
+                                                    }
+                                                },
+                                                items: [{
+                                                    xtype: 'textareafield',
+                                                    fieldLabel: 'Long Description',
+                                                    name: 'A_LONG_DESCRIPTION',
+                                                    value: getActionLD(),
+                                                    labelAlign: 'top',
+                                                    editable: (+userPermission > 4) ? false : true,
+                                                    enforceMaxLength: true,
+                                                    maxLength: 400,
+                                                    maxLengthText: true,
+                                                    grow: true,
+                                                    colspan: 1,
+                                                    width: 721,
+                                                    height: 90,
+                                                    margin: '0 15 15 15',
+                                                    allowBlank: false
+                                                }]
+                                            }]
+                                        }, {
+                                                xtype: 'panel',
+                                                columnWidth: 0.25,
+                                                width: 300,
+                                                border: false,
+                                                layout: {
+                                                    type: 'fit',
+                                                    align: 'stretch',
+                                                    pack: 'begin'
+                                                },
+                                                header: {
+                                                    titlePosition: 0,
+                                                    title: 'Attachments',
+                                                    items: [{
+                                                        xtype: 'button',
+                                                        hidden: (actionStatus == 'On Going') ? ((+userPermission > 4) ? true : false) : true,
+                                                        buttonText: '',
+                                                        iconCls: 'attachIcon',
+                                                        handler: function () {
+                                                            //debugger;
+                                                            var upldForm = new Ext.form.Panel({
+                                                                width: 300,
+                                                                //frame: true,
+                                                                bodyPadding: '10 10 0',
+                                                                defaults: {
+                                                                    anchor: '100%',
+                                                                    allowBlank: false,
+                                                                    msgTarget: 'side',
+                                                                    labelWidth: 50
+                                                                },
+                                                                items: [{
+                                                                    xtype: 'filefield',
+                                                                    id: 'form-file-action',
+                                                                    emptyText: 'Select a file',
+                                                                    fieldLabel: 'File',
+                                                                    name: 'file',
+                                                                    buttonText: '',
+                                                                    buttonConfig: {
+                                                                        iconCls: 'attachIcon'
+                                                                    }
+                                                                }
+                                                                ],
+                                                                buttons: [{
+                                                                    text: 'Save',
+                                                                    handler: function () {
+                                                                        var form = this.up('form').getForm();
+                                                                        if (form.isValid()) {
+
+                                                                            form.submit({
+                                                                                url: '@ViewBag.UploadAttachmentController',
+                                                                                params: {
+                                                                                    actionID: actionID
+                                                                                },
+                                                                                waitMsg: 'Uploading your file...',
+                                                                                success: function (form, o) {
+                                                                                    //ReloadAttachmentsInStep(CurrentProtocolStep);
+                                                                                    var dlg = Ext.Msg.show({
+                                                                                        title: 'Result',
+                                                                                        msg: o.result.result,
+                                                                                        buttons: Ext.Msg.OK,
+                                                                                        icon: Ext.Msg.INFO
+                                                                                    });
+                                                                                    Ext.StoreManager.lookup('attachmentStore').reload();
+                                                                                    upldWindow.close();
+                                                                                },
+                                                                                failure: function (form, o) //(4)
+                                                                                {
+                                                                                    var dlg = Ext.Msg.show({
+                                                                                        title: 'Result',
+                                                                                        msg: o.result.error,
+                                                                                        buttons: Ext.Msg.OK,
+                                                                                        icon: Ext.Msg.ERROR
+                                                                                    });
+
+                                                                                }
+                                                                            });
+                                                                        }
+                                                                    }
+                                                                }, {
+                                                                    text: 'Cancel',
+                                                                    handler: function () {
+                                                                        upldWindow.close()
+                                                                    }
+                                                                }]
+                                                            });
+
+                                                            var upldWindow = new Ext.Window({
+                                                                title: 'Add Attachment',
+                                                                width: 300,
+                                                                height: 100,
+                                                                plain: true,
+                                                                layout: 'fit',
+                                                                closeAction: 'destroy',
+                                                                maximizable: false,
+                                                                constrainHeader: true,
+                                                                modal: true,
+                                                                items: [upldForm]
+                                                            }).show();
+
+
+
+                                                        }
+                                                    }, {
+                                                    xtype: 'button',
+                                                    iconCls: 'xIcon',
+                                                    hidden: (actionStatus == 'On Going') ? ((+userPermission > 4) ? true : false) : true,
+                                                    handler: function () {
+
+                                                        function RemoveAttachment() {
+                                                            //debugger;
+                                                            var remdWindow;
+
+                                                            remdWindow = new Ext.Window({
+                                                                title: 'Remove Attachments',
+                                                                width: 300,
+                                                                height: 200,
+                                                                plain: true,
+                                                                layout: 'fit',
+                                                                closeAction: 'destroy',
+                                                                maximizable: false,
+                                                                constrainHeader: true,
+                                                                modal: true,
+                                                                items: [{
+                                                                    xtype: 'grid',
+                                                                    columnLines: true,
+                                                                    flex: 1,
+                                                                    selType: 'checkboxmodel',
+                                                                    id: 'removeGridAction',
+                                                                    store: Ext.StoreManager.lookup('attachmentStore'),
+                                                                    scroll: true,
+                                                                    padding: "0 0 0 0",
+                                                                    hideHeaders: true,
+                                                                    height: 100,
+                                                                    columns: [{
+                                                                        flex: 10,
+                                                                        text: 'File',
+                                                                        dataIndex: 'NAME',
+                                                                        sortable: true,
+                                                                        hideable: false
+                                                                    }]
+                                                                }],
+                                                                tbar: [{
+                                                                    text: 'Remove',
+                                                                    iconCls: 'ico-deleteattachment',
+                                                                    handler: function () {
+                                                                        //debugger;
+                                                                        var selection = Ext.getCmp('removeGridAction').getSelectionModel().getSelection();
+                                                                        if (selection.length == 0)
+                                                                            return;
+                                                                        else {
+                                                                            if (selection.length > 1) {
+                                                                                alert('Selected Items: ' + selection.length);
+                                                                            }
+                                                                        }
+                                                                        var selItems = 0;
+                                                                        var infoArray = new Array();
+                                                                        A_ID = actionID;
+                                                                        Ext.each(selection, function (val) {
+                                                                            //debugger;
+                                                                            var txt = val.data.NAME;
+                                                                            if (txt.length > 0) {
+                                                                                //selectedValues = selectedValues + txt + ';';
+                                                                                infoArray.push(txt + ';' + A_ID);
+                                                                                selItems = selItems + 1;
+                                                                            }
+                                                                        });
+                                                                        if (selItems > 0) {
+                                                                            //debugger;
+                                                                            Ext.Ajax.request({
+
+                                                                                url: '@ViewBag.RemoveAttachmentController',
+                                                                                method: 'POST',
+                                                                                params: {
+                                                                                    infoArray: infoArray,
+                                                                                },
+
+                                                                                success: function () {
+                                                                                    Ext.Msg.alert('Action Management Tool', 'Attachment(s) has been deleted');
+                                                                                    Ext.StoreManager.lookup('attachmentStore').reload();
+                                                                                    remdWindow.close();
+                                                                                }
+                                                                            });
+                                                                        }
+                                                                    }
+                                                                }, '->', {
+                                                                    text: 'Close',
+                                                                    iconCls: 'ico-close',
+                                                                    handler: function () {
+                                                                        remdWindow.close()
+                                                                    }
+                                                                }]
+                                                            }).show();
+                                                        }
+                                                        RemoveAttachment()
+                                                    }
+                                                }]
+                                                },
+                                                items: [
+                                                    {
+                                                        border: false,
+                                                        xtype: 'grid',
+                                                        id: 'actionAttachmentGrid',
+                                                        emptyText: 'No files',
+                                                        store: Ext.StoreManager.lookup('attachmentStore'),
+                                                        flex: 1,
+                                                        columns: [
+                                                            { text: 'File', flex: 1, dataIndex: 'NAME' },
+                                                        ],
+                                                        listeners: {
+                                                            itemdblclick: function (grid, record, item, index, e, eOpts) {
+                                                                //debugger;
+                                                                DownloadAttachment(record.data.PATH)
+
+                                                            }
+                                                        }
+                                                    }]
+                                            }]
+                                        },  {
+                                            xtype: 'panel',
+                                            layout: {
+                                                type: 'fit',
+                                                align: 'stretch',
+                                                pack: 'begin'
+                                            },
+                                            scrollable: true,
+                                            flex: 1,
+                                            border: false,
+                                            header: {
+                                                titlePosition: 0,
+                                                title: 'Updates',
+                                                items: [{
+                                                    xtype: 'button',
+                                                    id: 'addUpdateButton',
+                                                    hidden: (actionStatus == 'On Going') ? ((+userPermission > 4) ? true : false) : true,
+                                                    text: 'Add',
+                                                    handler: function () {
+                                                        //debugger;
+                                                        Ext.create('Ext.window.Window', {
+                                                            layout: 'fit',
+                                                            modal: true,
+                                                            id: 'addUpdatewindow',
+                                                            flex: 1,
+                                                            title: 'Add Update',
+                                                            closable: true,
+                                                            resizable: false,
+                                                            items: [{
+                                                                xtype: 'form',
+                                                                id: 'addUpdateForm',
+                                                                items: [{
+                                                                    xtype: 'panel',
+                                                                    border: false,
+                                                                    layout: {
+                                                                        type: 'table', columns: 1,
+                                                                        tableAttrs: {
+                                                                            style: {
+                                                                                width: '100%'
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    items: [{
+                                                                        xtype: 'textareafield',
+                                                                        fieldLabel: 'Update',
+                                                                        name: 'LAST_UPDATE',
+                                                                        colspan: 1,
+                                                                        allowBlank: false,
+                                                                        margin: '15 15 15 15',
+                                                                        maxLength: 2000,
+                                                                        width: 690,
+                                                                        height: 350,
+                                                                    }, {
+                                                                        xtype: 'numberfield',
+                                                                        fieldLabel: 'Accomplishment',
+                                                                        name: 'LU_ACCOMPLISHMENT',
+                                                                        colspan: 1,
+                                                                        allowBlank: false,
+                                                                        margin: '15 15 15 15'
+                                                                    }],
+
+
+
+                                                                }],
+                                                                buttons: [{
+                                                                    text: 'Cancel',
+                                                                    handler: function () {
+                                                                        Ext.getCmp('addUpdateForm').getForm().reset();
+                                                                    }
+                                                                }, {
+                                                                    text: 'Submit',
+                                                                    formBind: true,
+                                                                    handler: function () {
+                                                                        //debugger;
+                                                                        var addUpdateForm = Ext.getCmp('addUpdateForm');
+                                                                        var updateFormData = addUpdateForm.getValues();
+                                                                        var addUpdateArray = new Array();
+                                                                        addUpdateArray[0] = actionID;
+                                                                        addUpdateArray[1] = updateFormData.LAST_UPDATE;
+                                                                        addUpdateArray[2] = updateFormData.LU_ACCOMPLISHMENT;
+                                                                        addUpdateArray[3] = userDisplayName;
+
+                                                                        Ext.Ajax.request({
+                                                                            url: '@ViewBag.updateAction',
+                                                                            method: 'POST',
+                                                                            params: {
+                                                                                addUpdateArray: addUpdateArray
+                                                                            },
+
+                                                                            success: function () {
+
+                                                                                Ext.StoreManager.lookup('treeStoreAction').load()
+                                                                                Ext.StoreManager.lookup('lastUpdateStore').load()
+                                                                                Ext.Msg.alert('Action Management Tool', 'Action has been updated');
+                                                                                Ext.getCmp('addUpdatewindow').destroy();
+                                                                            }
+
+                                                                        })
+                                                                    }
+                                                                }]
+                                                            }]
+                                                        }).show();
+                                                    }
+                                                }]
+                                            },
+
+                                            items: [
+                                                {
+                                                    border: false,
+                                                    xtype: 'grid',
+                                                    emptyText: 'No data',
+                                                    flex: 1,
+                                                    id: 'lastUpdateGrid',
+                                                    store: Ext.StoreManager.lookup('lastUpdateStore'),
+                                                    columns: [
+                                                        { text: 'Last Update', dataIndex: 'LAST_UPDATE', flex: 0.7 },
+                                                        { text: 'Timestamp', dataIndex: 'LAST_UPDATE_DATE', flex: 0.15 },
+                                                        {
+                                                            text: 'Accomplishment',
+                                                            dataIndex: 'LU_ACCOMPLISHMENT',
+                                                            flex: 0.15,
+                                                            renderer: function (value, metaData, record, rowIndex, colIndex, store, view) {
+                                                                return value + ' %';
+                                                            }
+                                                        },
+                                                        { text: 'Owner', dataIndex: 'UPDATE_OWNER', flex: 0.15 }
+
+                                                    ],
+                                                    listeners: {
+                                                        celldblclick: function (grid, td, cellIndex, record, tr, rowIndex, e, eOpts) {
+                                                            //debugger;
+                                                            Ext.create('Ext.window.Window', {
+                                                                layout: 'fit',
+                                                                modal: true,
+                                                                id: 'openFullUpdateActionWindow',
+                                                                flex: 1,
+                                                                title: 'Update',
+                                                                closable: true,
+                                                                resizable: false,
+                                                                items: [{
+                                                                    xtype: 'form',
+                                                                    id: 'openUpdateActionForm',
+                                                                    items: [{
+                                                                        xtype: 'panel',
+                                                                        border: false,
+                                                                        layout: {
+                                                                            type: 'table', columns: 1,
+                                                                            tableAttrs: {
+                                                                                style: {
+                                                                                    width: '100%'
+                                                                                }
+                                                                            }
+                                                                        },
+                                                                        items: [{
+                                                                            xtype: 'textareafield',
+                                                                            fieldLabel: 'Update',
+                                                                            name: 'LAST_UPDATE',
+                                                                            colspan: 1,
+                                                                            value: record.data.LAST_UPDATE,
+                                                                            editable: false,
+                                                                            allowBlank: false,
+                                                                            margin: '15 15 15 15',
+                                                                            enforceMaxLength: true,
+                                                                            maxLength: 2000,
+                                                                            width: 690,
+                                                                            height: 350,
+                                                                        }],
+
+
+
+                                                                    }],
+                                                                }]
+                                                            }).show();
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        }],
+
+
+                                    buttons: [
+                                        {
+                                            id: 'draftActionButton',
+                                            text: 'Assign',
+                                            hidden: (actionStatus == 'Draft') ? ((+userPermission > 3) ? true : false) : ((actionStatus == 'Rejected') ? ((+userPermission > 3) ? true : false) : true),
+                                            handler: function () {
+
+                                                var draftArray = new Array();
+                                                draftArray[0] = actionID;
+
+                                                Ext.Ajax.request({
+                                                    url: '@ViewBag.draftStatus',
+                                                    method: 'POST',
+                                                    params: {
+                                                        draftArray: draftArray
+                                                    },
+
+                                                    success: function () {
+                                                        Ext.getStore('treeStoreAction').reload();
+                                                        Ext.Msg.alert('Action Management Tool', 'Action has been assigned');
+                                                        Ext.getCmp('editactionwindow').destroy();
+                                                    }
+
+                                                })
+                                            }
+                                        }, {
+
+                                            xtype: 'button',
+                                            id: 'acknowledgeActionButton',
+                                            text: 'Accept',
+                                            hidden: (actionStatus == 'Assigned') ? ((ownerID == employeeID) ? false : true) : true,
+                                            handler: function () {
+
+                                                var startActionArray = new Array();
+                                                startActionArray[0] = actionID;
+
+                                                Ext.Ajax.request({
+                                                    url: '@ViewBag.startActionStatus',
+                                                    method: 'POST',
+                                                    params: {
+                                                        startActionArray: startActionArray
+                                                    },
+
+                                                    success: function () {
+                                                        Ext.getStore('treeStoreAction').reload();
+                                                        Ext.Msg.alert('Action Management Tool', 'Action has been accepted');
+                                                        Ext.getCmp('editactionwindow').destroy();
+                                                    }
+
+                                                })
+                                            }
+                                        }, {
+
+                                            xtype: 'button',
+                                            id: 'denyActionButton',
+                                            text: 'Reject',
+                                            hidden: (actionStatus == 'Assigned') ? ((ownerID == employeeID) ? false : true) : true,
+                                            handler: function () {
+
+                                                var denyArray = new Array();
+                                                denyArray[0] = actionID;
+
+                                                Ext.Ajax.request({
+                                                    url: '@ViewBag.denyAction',
+                                                    method: 'POST',
+                                                    params: {
+                                                        denyArray: denyArray
+                                                    },
+
+                                                    success: function () {
+                                                        Ext.getStore('treeStoreAction').reload();
+                                                        Ext.Msg.alert('Action Management Tool', 'Action has been rejected');
+                                                        Ext.getCmp('editactionwindow').destroy();
+                                                    }
+
+                                                })
+                                            }
+                                        }, {
+                                            id: 'closeActionButton',
+                                            text: 'Close',
+                                            hidden: (actionStatus == 'Concluded') ? ((userPermission < 4) ? false : true) : true,
+                                            handler: function () {
+                                                debugger;
+                                                var closeActionArray = new Array();
+                                                closeActionArray[0] = actionID;
+
+                                                Ext.Ajax.request({
+                                                    url: '@ViewBag.closeAction',
+                                                    method: 'POST',
+                                                    params: {
+                                                        closeActionArray: closeActionArray
+                                                    },
+
+                                                    success: function () {
+                                                        Ext.getStore('treeStoreAction').reload();
+                                                        Ext.Msg.alert('Action Management Tool', 'Action has been closed');
+                                                    }
+
+                                                })
+                                            }
+                                        }, {
+                                            text: 'Cancel',
+                                            //hidden: (actionStatus == 'On Going') ? ((+userPermission > 4) ? true : false) : true,
+                                            hidden: (actionStatus == 'On Going') ? ((+userPermission > 4) ? true : false) : ((actionStatus == 'Draft') ? ((+userPermission > 3) ? true : false) : true),
+                                            handler: function () {
+                                                Ext.getCmp('editActionForm').getForm().reset();
+                                            }
+                                        }, {
+                                            text: 'Submit',
+                                            hidden: (actionStatus == 'On Going') ? ((+userPermission > 4) ? true : false) : ((actionStatus == 'Draft') ? ((+userPermission > 4) ? true : false) : true),
+                                            //hidden: (actionStatus == 'On Going') ? ((+userPermission > 4) ? true : false) : true,
+                                            //formBind: true,
+
+                                            handler: function () {
+                                                //debugger;
+                                                var editActionForm = Ext.getCmp('editActionForm');
+                                                var editActionFormData = editActionForm.getValues();
+                                                var oldActionData = treeStoreAction.findRecord('A_ID', actionID);
+
+                                                ADStore.filter('EMPLOYEEID', oldActionData.data.A_OWNER);
+                                                var oldDisplayName = ADStore.getData().items[0].data.DISPLAYNAME;
+                                                ADStore.clearFilter()
+
+                                                var actionDataArray = new Array();
+                                                actionDataArray[0] = actionID;
+                                                actionDataArray[1] = oldActionData.data.A_OWNER;
+                                                actionDataArray[2] = oldActionData.data.A_SHORT_DESCRIPTION;
+                                                actionDataArray[3] = oldActionData.data.A_LONG_DESCRIPTION;
+                                                actionDataArray[4] = oldActionData.data.A_PLANNED_START;
+                                                actionDataArray[5] = oldActionData.data.A_FORECAST_ENDDATE;
+                                                actionDataArray[6] = oldDisplayName;
+
+                                                ADStore.filter('EMPLOYEEID', editActionFormData.A_OWNER);
+                                                var editDisplayName = ADStore.getData().items[0].data.DISPLAYNAME;
+                                                ADStore.clearFilter()
+
+                                                var editActionArray = new Array();
+                                                editActionArray[0] = actionID;
+                                                editActionArray[1] = editActionFormData.A_OWNER;
+                                                editActionArray[2] = editActionFormData.A_SHORT_DESCRIPTION;
+                                                editActionArray[3] = editActionFormData.A_LONG_DESCRIPTION;
+                                                editActionArray[4] = editActionFormData.A_PLANNED_START;
+                                                editActionArray[5] = editActionFormData.A_FORECAST_ENDDATE;
+                                                editActionArray[6] = editDisplayName;
+                                                editActionArray[7] = userDisplayName;
+
+
+                                                Ext.Ajax.request({
+                                                    url: '@ViewBag.editAction',
+                                                    method: 'POST',
+                                                    params: {
+                                                        editActionArray: editActionArray,
+                                                        actionDataArray: actionDataArray
+                                                    },
+
+                                                    success: function () {
+                                                        //debugger;
+                                                        //var updatedRecs = new Array();
+                                                        //updatedRecs = Ext.StoreManager.lookup('treeStoreAction').getUpdatedRecords()
+                                                        Ext.StoreManager.lookup('lastUpdateStore').reload();
+                                                        Ext.getStore('treeStoreAction').reload();
+                                                        Ext.Msg.alert('Action Management Tool', 'Action has been edited');
+                                                    }
+
+                                                })
+
+                                            }
+
+                                        }
+
+                                    ]
+
+                                }]
+
+                            }).show();
+                            //debugger;
+                        }
+
+
+                    },
+                    {
+                        xtype: 'button',
+                        id: 'deleteactionbutton',
+                        hidden: (+userPermission > 3) ? true : false,
+                        text: 'Delete Action',
+                        disabled: true,
+                        handler: function () {
+
+                            actionID = getActionID()
+                            ownerID = Ext.getCmp('treePanel1').getSelection()[0].get('A_OWNER')
+                            var deleteArray = new Array();
+                            deleteArray[0] = getActionID();
+
+                            Ext.Ajax.request({
+                                url: '@ViewBag.deleteAction',
+                                method: 'POST',
+                                params: {
+                                    deleteArray: deleteArray
+                                },
+
+                                success: function () {
+                                    Ext.getStore('treeStoreAction').reload();
+                                    Ext.Msg.alert('Action Management Tool', 'Action has been deleted');
+                                }
+
+                            })
+
+                        }
+                    }, {
+                        xtype: 'button',
+                        id: 'manageweightbutton',
+                        hidden: (+userPermission > 3) ? true : false,
+                        text: 'Manage Weight',
+                        disabled: true,
+                        handler: function () {
+                            //debugger;
+                            actionID = getActionID()
+                           var weightWindow = Ext.create('Ext.window.Window', {
+                                layout: 'fit',
+                                modal: true,
+                                id: 'manageweightwindow',
+                                flex: 1,
+                                resizable: false,
+                                header: {
+                                    titlePosition: 0,
+                                    title: 'Manage Weight',
+                                    items: [{
+                                        xtype: 'panel',
+                                        id: 'actionsweightprogressbarlocation',
+                                        width: 200,
+                                    }]
+                                },
+                                closable: true,
+                                scrollable: true,
+                                items: [{
+                                    xtype: 'panel',
+                                    id: 'weightactiongrouppanel',
+                                    layout: 'vbox',
+
+                                }],
+                                buttons: [{
+                                    text: 'Submit',
+                                    handler: function () {
+                                        var weightArray=[]
+                                        Ext.Array.each(Ext.getCmp('weightactiongrouppanel').items.items, function (data) {
+                                            //debugger;
+                                            var parameters = new Array();
+                                            parameters[0] = data.items.items[0].fieldLabel;
+                                            parameters[1] = data.items.items[0].value;
+
+                                            weightArray.push(parameters)
+
+                                        })
+
+                                        Ext.Ajax.request({
+                                            url: '@ViewBag.updateWeights',
+                                            method: 'POST',
+                                            params: {
+                                                weightArray: weightArray
+                                            },
+
+                                            success: function () {
+
+                                                Ext.getCmp('manageweightwindow').destroy();
+                                                Ext.Msg.alert('Action Management Tool', 'Weights updated');
+                                                Ext.getStore('treeStoreAction').reload();
+                                            }
+                                        })
+                                    }
+                                }]
+
+                            }).show();
+                            weightsum = 0;
+                            var actionInfoArray = new Array();
+                            actionInfoArray[0] = actionID;
+                            weightsum = 0;
+
+                            Ext.Ajax.request({
+                                url: '@ViewBag.getActionsforWeight',
+                                method: 'POST',
+                                params: {
+                                    actionInfoArray: actionInfoArray
+                                },
+
+                                callback: function (options, success, response) {
+                                    //debugger;
+                                    var resp = Ext.JSON.decode(response.responseText);
+
+                                    var panelweightadd = [];
+                                    var data = '{';
+                                    var formula = '{';
+                                    var datavalue = [];
+
+                                    Ext.Array.each(resp.items, function (value) {
+                                        //debugger;
+                                        data += value.A_ID.replace(/\+|\-/ig, '_') + ':' + value.A_WEIGHT;
+                                        formula += "f" + value.A_ID.replace(/\+|\-/ig, '_') + ": '{" + value.A_ID.replace(/\+|\-/ig, '_') + "}'";
+                                        datavalue.push('data.f' + value.A_ID.replace(/\+|\-/ig, '_'));
+
+                                        try {
+                                            panelweightadd.push(
+                                            {
+                                                xtype: 'panel',
+                                                flex: 1,
+                                                layout: 'column',
+                                                id: 'sliderform' + value.A_ID,
+                                                items: [{
+                                                    xtype: 'numberfield',
+                                                    value: value.A_WEIGHT,
+                                                    fieldLabel: value.A_ID,
+                                                    value: value.A_WEIGHT,
+                                                    minValue: 0,
+                                                    maxValue: 100,
+                                                    margin: '15 15 15 15',
+                                                    bind: '{' + value.A_ID.replace(/\+|\-/ig, '_') + '}',
+                                                    listeners: {
+                                                        change: function (e, newValue, oldValue) {
+                                                            //debugger;
+                                                            var maxValue = 100;
+                                                            actualTotalValue = (Ext.getCmp('weightpanelprogressbar').getValue()) * 100
+                                                            diff = newValue - oldValue;
+                                                            if (maxValue < (actualTotalValue + diff)) e.setValue(oldValue);
+                                                        }
+                                                    }
+                                                }, {
+                                                    xtype: 'panel',
+                                                    layout: 'fit',
+                                                    margin: '15 15 15 15',
+                                                    border: false,
+                                                    items: [{
+                                                        xtype: 'slider',
+                                                        width: 200,
+                                                        value: value.A_WEIGHT,
+                                                        increment: 1,
+                                                        readOnly: true,
+                                                        minValue: 0,
+                                                        maxValue: 100,
+                                                        bind: '{' + value.A_ID.replace(/\+|\-/ig, '_') + '}',
+                                                        listeners: {
+                                                            beforechange: function (e, newValue, oldValue) {
+                                                                //debugger;
+                                                                if (Ext.getCmp('weightpanelprogressbar') != undefined) {
+                                                                    var maxValue = 100;
+                                                                    actualTotalValue = (Ext.getCmp('weightpanelprogressbar').getValue()) * 100
+                                                                    diff = newValue - oldValue;
+                                                                    if (maxValue < (actualTotalValue + diff)) return false;
+                                                                }
+                                                            }
+                                                        }
+                                                    }]
+                                                }],
+
+                                            })
+                                        } catch (e) {
+                                            debugger;
+                                        }
+
+                                        data += ', ';
+                                        formula += ', ';
+
+                                    });
+                                    //debugger;
+                                    data += '}';
+                                    formula += '}';
+                                    var viewmodel = '{data:' + data + ', formulas: {sumAllValues: {bind:' + formula + ', get: function (data) {return ( ' + ((datavalue.join('+')) + ' )/100') + ';}}}}';
+                                    var viewModelObject = Ext.JSON.decode(viewmodel);
+                                    try {
+                                        //debugger;
+                                        //Ext.getCmp('weightactiongrouppanel').setViewModel(viewModelObject);
+                                        Ext.getCmp('manageweightwindow').setViewModel(viewModelObject);
+                                    } catch (e) {
+                                        debugger;
+                                    }
+                                    //debugger;
+                                    Ext.getCmp('weightactiongrouppanel').add(panelweightadd);
+
+                                    Ext.getCmp('actionsweightprogressbarlocation').add({
+                                        xtype: 'progressbar',
+                                        id: 'weightpanelprogressbar',
+                                        bind: '{sumAllValues}',
+                                        flex: 1,
+                                    });
+
+
+                                },
+
+                                success: function () {
+
+                                }
+
+                            })
+
+                        }
+                    }]
+                }],
+
+            items: [{
+
+                xtype: 'panel',
+                id: 'actiontreezone',
+                border: false,
+                layout: {
+                    type: 'fit',
+                    align: 'stretch',
+                    pack: 'begin'
+                }
+                }]
+        }],
+        listeners: {
+            afterrender: function (panel) {
+                HookResizeHandler(Ext.getCmp('centerloader'), panel);
+            }
+        }
+
+    });
+
+
+    var treePanel1 = Ext.create('Ext.tree.Panel', {
+        title: 'Plans',
+        collapsed: false,
+        border: false,
+        id: 'treePanel1',
+        flex: 1,
+        store: treeStoreAction,
+        rootVisible: false,
+        plugins: {
+            ptype: 'cellediting',
+            clicksToEdit: 1,
+            autoCancel: false
+        },
+        columns: [{
+            xtype: 'treecolumn',
+            header: 'Identification',
+            dataIndex: 'text',
+            flex: 1
+        },{
+            header: 'Description',
+            dataIndex: 'A_SHORT_DESCRIPTION',
+            flex: 5.3
+        },
+        {
+            header: 'Owner',
+            dataIndex: 'A_OWNER',
+            flex: 1,
+            renderer: function (value, metaData, record, rowIndex, colIndex, store, view) {
+                //debugger;
+                ADStore.filter('EMPLOYEEID', value)
+                var displayNameTree = ADStore.getData().items[0].data.DISPLAYNAME;
+                ADStore.clearFilter()
+                return displayNameTree
+            }
+
+        },
+        {
+            header: 'Status',
+            dataIndex: 'A_STATUS',
+            flex: 1.09,
+        }, {
+            header: 'Accomplishment',
+            dataIndex: 'A_ACCOMPLISHMENT',
+            flex: 1,
+            renderer: function (value, metaData, record, rowIndex, colIndex, store, view) {
+                return value + ' %';
+            }
+        },{
+            header: 'Weight',
+            dataIndex: 'A_WEIGHT',
+            flex: 1,
+            renderer: function (value, metaData, record, rowIndex, colIndex, store, view) {
+                return value + ' %';
+            }
+        }, {
+            header: 'Planned Start Date',
+            dataIndex: 'A_PLANNED_START',
+            flex: 1
+        }, {
+            header: 'Start Date',
+            dataIndex: 'A_START_DATE',
+            flex: 1
+        }, {
+            header: 'Planned End Date',
+            dataIndex: 'A_PLANNED_END',
+            flex: 1,
+            renderer: function (value, metaData, record, rowIndex, colIndex, store, view) {
+                if (value != record.data.A_FORECAST_ENDDATE) {
+                    return record.data.A_FORECAST_ENDDATE;
+                }
+                else {
+                    return value;
+                }
+            }
+        }, {
+            header: 'End Date',
+            dataIndex: 'A_END_DATE',
+            flex: 1
+        }],
+        listeners: {
+            cellclick: function (cell, td, cellIndex, recordtreeaction, tr, rowIndex, e, eOpts) {
+                //debugger;
+                if (recordtreeaction.data.leaf == true) {
+                    //debugger;
+                    actionID = recordtreeaction.data.A_ID;
+                    //================================================================================//
+                    //==============================SET BUTTONS DISABLE==============================//
+                    //==============================================================================//
+                    Ext.getCmp('newactionbutton').setDisabled(true)
+                    Ext.getCmp('deleteactiongroupbutton').setDisabled(true)
+                    if (getActionStatus() == "Waiting to be drafted") {
+                        Ext.getCmp('deleteactionbutton').setDisabled(false)
+                    }
+                    else {
+                        Ext.getCmp('deleteactionbutton').setDisabled(true)
+                    }
+
+                    Ext.getCmp('manageweightbutton').setDisabled(true)
+                    Ext.getCmp('editactionbutton').setDisabled(false)
+                    Ext.getCmp('editactiongroupbutton').setDisabled(true)
+
+                    //================================================================================//
+                    //==============================PERMISSIONS OPERATIONS===========================//
+                    //==============================================================================//
+
+                    if (userPermission == "4" || userPermission == "3" || userPermission == "5") {
+                        //debugger;
+                        if (recordtreeaction.data.A_OWNER == employeeID) {
+                            if (recordtreeaction.parentNode.data.A_OWNER == employeeID) {
+                                setToolBarButtonsPermissions3()
+                            }
+                            else {
+                                setToolBarButtonsPermissions4()
+                            }
+                        }
+                        else if (recordtreeaction.parentNode.data.A_OWNER == employeeID) {
+                            setToolBarButtonsPermissions3()
+                        }
+                        else {
+                            setToolBarButtonsPermissionsViewMode()
+                        }
+                    }
+
+                }
+                else {
+                    //debugger;
+                    actionID = recordtreeaction.data.A_ID;
+                    //================================================================================//
+                    //==============================SET BUTTONS DISABLE==============================//
+                    //==============================================================================//
+                    Ext.getCmp('newactionbutton').setDisabled(false)
+                    Ext.getCmp('deleteactionbutton').setDisabled(true)
+                    Ext.getCmp('editactionbutton').setDisabled(true)
+
+
+                    if (recordtreeaction.data.filhos.length == "0") {
+                        Ext.getCmp('deleteactiongroupbutton').setDisabled(false)
+                        Ext.getCmp('manageweightbutton').setDisabled(true)
+                    }
+                    else {
+                        Ext.getCmp('deleteactiongroupbutton').setDisabled(true)
+                         Ext.getCmp('manageweightbutton').setDisabled(false)
+                    }
+
+                    Ext.getCmp('editactiongroupbutton').setDisabled(false)
+
+                    //================================================================================//
+                    //==============================PERMISSIONS OPERATIONS===========================//
+                    //==============================================================================//
+
+                    if (userPermission == "4" || userPermission == "3" || userPermission == "5") {
+                        //debugger;
+                        if (recordtreeaction.data.A_OWNER == employeeID) {
+                            setToolBarButtonsPermissions3()
+                        }
+                        else {
+                            setToolBarButtonsPermissions4()
+                        }
+                    }
+
+                    //debugger;
+                    if (recordtreeaction.data.A_STATUS != "On Going") {
+
+                        Ext.getCmp('newactionbutton').setDisabled(true);
+                        Ext.getCmp('manageweightbutton').setDisabled(true);
+                    }
+                }
+            },
+            beforeedit: function (a, b) {
+
+                if (b.record.get('A_STATUS') != 'Completed') {
+                    return false
+                }
+            },
+
+        }
+
+
+    });
+    //debugger;
+    Ext.getCmp('actiontreezone').add(treePanel1);
+
+</script>
+
+<div id="ActionPanel"></div>
