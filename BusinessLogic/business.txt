@@ -1,0 +1,250 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Data;
+using UtilitiesLibrary;
+using BusinessObjectLibrary;
+using DataLibrary;
+using Oracle.DataAccess.Client;
+
+namespace BusinessLibrary
+{
+    public class Business
+    {
+
+        public static List<EventObject> BusinessEventTree(string Permission, string EmployeeID)
+        {
+            List<EventObject> EventTreeItems = new List<EventObject>();
+            DataTable data = DataCall.EventTree(Permission, EmployeeID);
+            DataTable catData = DataCall.DCPlanCategoryTree(Permission, EmployeeID);
+
+            foreach (DataRow row in catData.Rows)
+            {
+                int i = EventTreeItems.FindIndex(x => x.ID_CATEGORY == row["ID_CATEGORY"].ToString());
+
+                if (i == -1)
+                {
+                    EventTreeItems.Add(new EventObject()
+                    {
+                        ID_CATEGORY = row["ID_CATEGORY"].ToString(),
+                        text = row["C_DESC"].ToString(),
+                        C_OWNER = row["C_OWNER"].ToString(),
+                        leaf = false,
+                        expanded = true,
+                    });
+                }
+            }
+
+            foreach (DataRow row in data.Rows) {
+
+                int o = EventTreeItems.FindIndex(x => x.ID_CATEGORY == row["ID_CATEGORY"].ToString());
+
+                if (row["ID_EVENT"].ToString() != "0000") {
+                    EventTreeItems[o].filhos.Add(new EventObject()
+                    {
+
+                        ID_EVENT = row["ID_CATEGORY"].ToString() + row["ID_EVENT"].ToString(),
+                        text = row["E_SHORTDESCRIPTION"].ToString(),
+                        ID_CATEGORY = row["ID_CATEGORY"].ToString(),
+                        ID = row["ID_EVENT"].ToString(),
+                        HASCHILD = row["A_ID_E"].ToString(),
+                        E_OWNER = row["E_OWNER"].ToString(),
+                        E_SHORTDESCRIPTION = row["E_SHORTDESCRIPTION"].ToString(),
+                        E_LONGDESCRIPTION = row["E_LONGDESCRIPTION"].ToString(),
+                        E_CATEGORYNAME = row["C_DESC"].ToString(),
+                        E_ACCOMPLISHMENT = row["E_ACCOMPLISHMENT"].ToString(),
+                        E_START_DATE = Convert.ToDateTime(row["E_START_DATE"].ToString()).ToString("dd/MM/yyyy"),
+                        E_PLANNED_END = Convert.ToDateTime(row["E_PLANNED_END"].ToString()).ToString("dd/MM/yyyy"),
+                        E_FORECAST_ENDDATE = (row["E_FORECAST_ENDDATE"].ToString().Length > 0) ? Convert.ToDateTime(row["E_FORECAST_ENDDATE"].ToString()).ToString("dd/MM/yyyy") : Convert.ToDateTime(row["E_PLANNED_END"].ToString()).ToString("dd/MM/yyyy"),
+                        leaf = true,
+
+                    });
+                }
+
+            }
+            return EventTreeItems;
+        }
+
+
+
+        public static Boolean newEvent(string[] newEventArray)
+        {
+            Boolean data = DataCall.newEvent(newEventArray);
+            string[] createCategoryArray = new string[3];
+            createCategoryArray[2] = newEventArray[1];
+            Boolean data1 = DataCall.setPermissionlvl2(createCategoryArray);
+
+            return data;
+        }
+
+        public static Boolean deleteEvent(string[] deleteArray)
+        {
+            Boolean data = DataCall.deleteEvent(deleteArray);
+
+            return data;
+        }
+
+        public static Boolean editEvent(string[] editArray)
+        {
+            Boolean data = DataCall.editEvent(editArray);
+
+            return data;
+        }
+
+        public static Boolean createCategory(string[] createCategoryArray)
+        {
+           if(DataCall.getCategories(createCategoryArray) == true)
+            {
+                Boolean data = DataCall.createCategory(createCategoryArray);
+                Boolean permission = DataCall.setPermissionlvl2(createCategoryArray);
+                return data;
+            }
+           else
+            {
+                return false;
+            }
+
+            
+        }
+
+        public static Boolean deleteCategory(string[] deleteCategoryArray)
+        {
+            Boolean data = DataCall.deleteCategory(deleteCategoryArray);
+
+
+            return data;
+        }
+
+        public static List<ADObject> ActiveDirectory(string query)
+        {
+            List<ADObject> ADItems = new List<ADObject>();
+            DataTable data = DataCall.ActiveDirectory();
+            foreach (DataRow row in data.Rows)
+            {
+                ADItems.Add(new ADObject()
+                {
+
+                    DISPLAYNAME = row["displayname"].ToString(),
+                    EMPLOYEEID = row["employeeid"].ToString(),
+                    SAMACCOUNTNAME = row["samaccountname"].ToString(),
+
+                });
+
+            }
+
+            return ADItems;
+
+        }
+
+        public static List<ActionTreeObject> getEventSonsWeight(string[] eventInfoArray)
+        {
+            List<ActionTreeObject> PlanItems = new List<ActionTreeObject>();
+
+            DataTable data = DataCall.getEventSons(eventInfoArray);
+            foreach (DataRow row in data.Rows)
+            {
+                PlanItems.Add(new ActionTreeObject()
+                {
+                    A_ID = row["A_ID"].ToString(),
+                    A_SHORT_DESCRIPTION = row["A_SHORT_DESCRIPTION"].ToString(),
+                    A_WEIGHT = row["A_WEIGHT"].ToString(),
+                });
+            }
+            return PlanItems;
+
+        }
+
+        public static string getUserPermission(string accountName)
+        {
+            DataTable data = DataCall.ActiveDirectory();
+            DataView dv = new DataView(data);
+            dv.RowFilter = "sAMAccountName = '" + accountName + "'";
+            //dv.RowFilter = "sAMAccountName = 'barbosjo'";
+            //dv.RowFilter = "sAMAccountName = 'moreiraf'";
+            DataTable userTable = dv.ToTable();
+            string employeeID = string.Empty;
+            string permissionLevel = string.Empty;
+            if (userTable.Rows.Count > 0)
+            {
+                foreach (DataRow row in userTable.Rows)
+                {
+                    employeeID = row["EMPLOYEEID"].ToString();
+                }
+
+                string[] employeeIDArray = new string[1];
+                employeeIDArray[0] = employeeID;
+
+
+                DataTable permissions = DataCall.Permissions(employeeIDArray);
+                if (permissions.Rows.Count > 0)
+                {
+                    DataView dvPermissions = new DataView(permissions);
+                    dvPermissions.RowFilter = "EMPLOYEEID = '" + employeeID + "'";
+                    DataTable userPermissionTable = dvPermissions.ToTable();
+                    //string permissionLevel = string.Empty;
+
+
+                    foreach (DataRow row in userPermissionTable.Rows)
+                    {
+                        permissionLevel = row["PERMISSION_LEVEL"].ToString();
+                    }
+
+                    return permissionLevel;
+                }
+                else
+                {
+                    permissionLevel = "0";
+                    return permissionLevel;
+                }
+            }
+            else
+            {
+                permissionLevel = "0";
+                return permissionLevel;
+            }
+            
+        }
+
+        public static string getUserName(string accountName)
+        {
+            DataTable data = DataCall.ActiveDirectory();
+            DataView dv = new DataView(data);
+            dv.RowFilter = "sAMAccountName = '" + accountName + "'";
+            //dv.RowFilter = "sAMAccountName = 'barbosjo'";
+            //dv.RowFilter = "sAMAccountName = 'moreiraf'";
+            DataTable userTable = dv.ToTable();
+            string displayName = string.Empty;
+
+            foreach (DataRow row in userTable.Rows)
+            {
+                displayName = row["displayname"].ToString();
+
+            }
+
+            return displayName;
+        }
+
+        public static string getUserID(string accountName)
+        {
+            DataTable data = DataCall.ActiveDirectory();
+            DataView dv = new DataView(data);
+            dv.RowFilter = "sAMAccountName = '" + accountName + "'";
+            //dv.RowFilter = "sAMAccountName = 'barbosjo'";
+            //dv.RowFilter = "sAMAccountName = 'moreiraf'";
+            DataTable userTable = dv.ToTable();
+            string employeeID = string.Empty;
+
+            foreach (DataRow row in userTable.Rows)
+            {
+                employeeID = row["EMPLOYEEID"].ToString();
+
+            }
+
+            return employeeID;
+        }
+
+
+    }
+}

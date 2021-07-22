@@ -1,0 +1,332 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using BusinessLibrary;
+using BusinessObjectLibrary;
+using UtilitiesLibrary;
+
+namespace ACTIONTOOL.Models
+{
+    public class ActionDataFlow
+    {
+        public static List<ActionTreeObject> getActionTreeItems(string ID_EVENT, string Permission, string EmployeeID)
+        {
+            return ActionBusiness.BusinessActionTree(ID_EVENT, Permission, EmployeeID);
+        }
+
+        public static List<ActionTreeObject> getActionTreeFilteredItems(string[] filterArray, string Permission, string EmployeeID)
+        {
+            return ActionBusiness.BusinessActionFilteredTree(filterArray, Permission, EmployeeID);
+        }
+
+        public static Boolean createActionGroup(string[] actionGroupArray)
+        {
+            return ActionBusiness.createActionGroup(actionGroupArray);
+        }
+
+        public static Boolean editActionGroup(string[] editActionGroupArray, string[] actionGroupDataArray)
+        {
+            return ActionBusiness.editActionGroup(editActionGroupArray, actionGroupDataArray);
+        }
+
+        public static Boolean createAction(string[] actionArray)
+        {
+            return ActionBusiness.createAction(actionArray);
+        }
+        public static Boolean editAction(string[] editActionArray, string[] actionDataArray)
+        {
+            return ActionBusiness.editAction(editActionArray, actionDataArray);
+        }
+
+        public static Boolean deleteAction(string[] deleteArray)
+        {
+            return ActionBusiness.deleteAction(deleteArray);
+        }
+
+        public static Boolean deleteActionGroup(string[] deleteGroupArray)
+        {
+            return ActionBusiness.deleteActionGroup(deleteGroupArray);
+        }
+
+        public static List<LastUpdateObject> getLastUpdateData(string A_ID)
+        {
+            return ActionBusiness.getLastUpdateData(A_ID);
+        }
+
+        public static Boolean closeAction(string[] closeActionArray)
+        {
+            return ActionBusiness.closeAction(closeActionArray);
+        }
+
+        public static Boolean draftStatus(string[] draftArray)
+        {
+            return ActionBusiness.draftStatus(draftArray);
+        }
+
+        public static Boolean startActionStatus(string[] startActionArray)
+        {
+            return ActionBusiness.startActionStatus(startActionArray);
+        }
+
+        public static Boolean updateAction(string[] addUpdateArray)
+        {
+            return ActionBusiness.updateAction(addUpdateArray);
+        }
+
+        public static Boolean denyAction(string[] denyArray)
+        {
+            return ActionBusiness.denyAction(denyArray);
+        }
+
+        public static List<ActionTreeObject> getActionsforWeight(string[] actionInfoArray)
+        {
+            return ActionBusiness.getActionsforWeight(actionInfoArray);
+        }
+
+        public static Boolean updateWeights(string[] weightArray)
+        {
+            return ActionBusiness.updateWeights(weightArray);
+        }
+
+        public static Boolean addAttachment(string strTemporaryFileNameAndPath, string actionID)
+        {
+            return ActionBusiness.addAttachment(strTemporaryFileNameAndPath, actionID);
+        }
+
+        public static List<PathObject> getAttachments(string A_ID)
+        {
+            return ActionBusiness.getAttachments(A_ID);
+        }
+
+        public static Boolean RemoveAttachments(string[] infoArray)
+        {
+            return ActionBusiness.RemoveAttachments(infoArray);
+        }
+
+        public class SessionManager //: ISessionManager
+        {
+            //Hashtable to store the list of sessions allocated.
+            Hashtable hsSession = new Hashtable();
+            //static SessionManager objSM; //static SINGLETON object
+            //a timer to manage the session timeouts
+            //private static Timer tmrSessionTimeout;
+            //private static int SessionTimeout = 120; // 2 hours
+            //Private Constructor - To prevent creating instaces explicitly
+            private SessionManager()
+            {
+            }
+            //public static void SetTimeout(int timeout)
+            //{
+            //    SessionTimeout=timeout;
+            //}
+            //Create a new object of session manager.
+            //public static SessionManager getInstance()
+            //{
+            //    if (objSM == null)
+            //    {
+            //        objSM = new SessionManager();
+            //        //create a new objectof the timer class and associte //a timer call back delegate. The removesession
+            //        //method will be invoked by the timer object for //every 1000 milliseconds (change it as u like).
+            //        tmrSessionTimeout = new Timer(new TimerCallback(objSM.removesession), null, 0, 10000);
+            //        return objSM;
+            //    }
+            //    return objSM;
+            //}
+            ////This method will be invoked by the timer call back for every 1000 milliseconds.
+            //private void removesession(object state)
+            //{
+            //    try
+            //    {
+            //        IDictionaryEnumerator objSesEnum = hsSession.GetEnumerator();
+            //        //A temporary session object.
+            //        ISession tmpSesObj;
+            //        ArrayList arrExpiredKeys = new ArrayList();
+            //        //for each session, check the last used datetime.
+            //        while (objSesEnum.MoveNext())
+            //        {
+            //            try
+            //            {
+            //                //The session will be removed, if the user is idle for 2 hours. (change it as u like).
+            //                tmpSesObj = (ISession)objSesEnum.Value;
+            //                string a = tmpSesObj.getAttribute("lastAccessedDatetime").ToString();
+            //                DateTime dt = DateTime.Parse(a);
+            //                TimeSpan ts = dt.Subtract(DateTime.Now);
+            //                //If the difference between the last accessed //datetime and current date time is equal to 2 hours //then the session id will be added to the arraylist.
+            //                //(ie., left idle for 2 hours)
+            //                //if (dt.Subtract(DateTime.Now).Hours >= SessionTimeout)
+            //                if (dt.Subtract(DateTime.Now).TotalMinutes >= SessionTimeout)
+            //                {
+            //                    arrExpiredKeys.Add(objSesEnum.Key);
+            //                }
+            //                //remove the list of keys added to the array list.
+            //                int i = 0;
+            //                while (arrExpiredKeys.Count > i)
+            //                {
+            //                    //remove the session from the hashtable.
+            //                    hsSession.Remove(arrExpiredKeys[i]);
+            //                }
+            //            }
+            //            catch { }
+            //        }
+            //    }
+            //    catch
+            //    {
+            //    }
+            //}
+            //public string createSessionId()
+            //{
+            //    //Create a new guid which will act as the session id
+            //    string newSessionId = Guid.NewGuid().ToString();
+            //    //create a new session object and store the object in the //hashtable against the new session id (GUID).
+            //    Session objS = new Session();
+            //    if (hsSession.ContainsKey(newSessionId))
+            //        hsSession[newSessionId] = objS;
+            //    else
+            //        hsSession.Add(newSessionId, objS);
+            //    //Set the session id into the session object.
+            //    objS.setAttribute("SessionId", newSessionId);
+            //    //return the session id, 
+            //    return newSessionId;
+            //}
+            //public string createSessionId(string WithThisId)
+            //{
+            //    //Create a new guid which will act as the session id
+            //    string newSessionId = WithThisId;
+            //    //create a new session object and store the object in the //hashtable against the new session id (GUID).
+            //    Session objS = new Session();
+
+            //    if (hsSession.ContainsKey(newSessionId))
+            //    {
+            //        hsSession[newSessionId] = objS;
+            //    }
+            //    else
+            //    {
+            //        hsSession.Add(newSessionId, objS);
+            //    }
+            //    //Set the session id into the session object.
+            //    objS.setAttribute("SessionId", newSessionId);
+            //    //return the session id, 
+            //    return newSessionId;
+            //}
+            //public ISession getSession(string strSesId)
+            //{
+            //    ISession objS = (ISession)hsSession[strSesId];
+            //    {
+            //        if (objS != null)
+            //        {
+            //            //everytime when the session object is retried, update the //lastaccesseddate variable with the latest datetime
+            //            objS.setAttribute("lastAccessedDatetime", DateTime.Now);
+            //        }
+            //        else
+            //            objS = null;
+            //    }
+            //    return objS; //return the session object
+            //}
+            //public ISession removeSession(string strSesId)
+            //{
+            //    ISession objS = (ISession)hsSession[strSesId];
+            //    //remove the sessionid from the hash table.
+            //    hsSession.Remove(strSesId);
+            //    return objS; //return the removed session
+            //}
+
+            public static bool SetSessionAttribute(string AttributeName, object AttributeValue)
+            {
+                HttpContext.Current.Session[AttributeName] = AttributeValue;
+                return true;
+                //bool result = false;
+                //lock (hsSession)
+                //{
+                //    if (hsSession.ContainsKey(SessionId))
+                //    {
+                //        ((ISession)hsSession[SessionId]).setAttribute(AttributeName, AttributeValue);
+                //        result = true;
+                //    }
+                //}
+                //return result;
+            }
+
+            public static bool ClearSessionAttribute(string AttributeName)
+            {
+                try
+                {
+                    HttpContext.Current.Session.Remove(AttributeName);
+                   // Utilities.LogTrace(string.Format("Remove Session Atribute: {0}", AttributeName));
+                }
+                catch (Exception ex)
+                {
+                    ex.ToString();
+                  //  Utilities.LogTrace(string.Format("Remove Session Atribute: {0}, Error: {1}", AttributeName, ex.Message));
+                }
+
+                return true;
+                //bool result = false;
+                //lock (hsSession)
+                //{
+                //    if (hsSession.ContainsKey(SessionId))
+                //    {
+                //        ((ISession)hsSession[SessionId]).setAttribute(AttributeName, AttributeValue);
+                //        result = true;
+                //    }
+                //}
+                //return result;
+            }
+            public static bool GetSessionIsNew()
+            {
+                return HttpContext.Current.Session.IsNewSession;
+            }
+            public static object GetSessionAttribute(string AttributeName)
+            {
+                if (!AttributeName.Equals("SessionID"))
+                {
+                    if (HttpContext.Current == null || HttpContext.Current.Session == null)
+                    {
+                        LoggerHandler.LogDebug("HttpContext.Current or HttpContext.Current.Session is null");
+                    }
+                    bool foundKeySessionAttr = false;
+                    for (int i = 0; i < HttpContext.Current.Session.Keys.Count; i++)
+                    {
+                        if (HttpContext.Current.Session.Keys[i].Equals(AttributeName))
+                        {
+                            foundKeySessionAttr = true;
+                            break;
+                        }
+                    }
+                    if (foundKeySessionAttr)
+                        return HttpContext.Current.Session[AttributeName];
+                    else
+                        return null;
+                }
+                else
+                {
+                    return HttpContext.Current.Session.SessionID;
+                }
+                //lock (hsSession)
+                //{
+                //    if (hsSession.ContainsKey(SessionId))
+                //    {
+                //        return ((ISession)hsSession[SessionId]).getAttribute(AttributeName);
+                //    }
+                //}
+                //return null;
+            }
+
+            public static void ClearSessionAttributes(string SessionId)
+            {
+                //lock (hsSession)
+                //{
+                //    ISession session = (ISession)hsSession[SessionId];
+                //    if (session != null)
+                //    {
+                //        session.clearAttributes();
+                //    }
+                //}
+            }
+        }
+
+
+
+    }
+}

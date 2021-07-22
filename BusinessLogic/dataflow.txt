@@ -1,0 +1,52 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using BusinessLibrary;
+using BusinessObjectLibrary;
+
+namespace ACTIONTOOL.Models
+{
+    public class DataFlow
+    {
+        public static List<EventObject> getEventTreeItems(ref string strErr, string Permission, string EmployeeID)
+        {
+            return Business.BusinessEventTree(Permission, EmployeeID);
+        }
+
+        public static Boolean createEvent(string[] newEventArray)
+        {
+            return Business.newEvent(newEventArray);
+        }
+
+        public static Boolean deleteEvent(string[] deleteArray)
+        {
+            return Business.deleteEvent(deleteArray);
+        }
+
+        public static Boolean editEvent(string[] editArray)
+        {
+            return Business.editEvent(editArray);
+        }
+
+        public static Boolean createCategory(ref string strErr, string[] createCategoryArray)
+        {
+            return Business.createCategory(createCategoryArray);
+        }
+
+        public static Boolean deleteCategory(string[] deleteCategoryArray)
+        {
+            return Business.deleteCategory(deleteCategoryArray);
+        }
+
+        public static List<ADObject> getADItems(ref string strErr, string query)
+        {
+            return Business.ActiveDirectory(query);
+        }
+
+        public static List<ActionTreeObject> getEventSonsWeight(string[] eventInfoArray)
+        {
+            return Business.getEventSonsWeight(eventInfoArray);
+        }
+
+    }
