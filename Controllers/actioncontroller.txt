@@ -1,0 +1,491 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using BusinessObjectLibrary;
+using                            ACTIONTOOL.Models;
+using static ACTIONTOOL.Models.ActionDataFlow;
+using System.IO;
+using System.Data;
+
+namespace ACTIONTOOL.Controllers
+{
+    public class ActionController : Controller
+    {
+        // GET: Action
+        public ActionResult Index()
+        {
+            return View();
+        }
+
+        public ActionResult ActionPanel(string ID_EVENT)
+        {
+            ViewBag.ID_EVENT = ID_EVENT;
+            ViewBag.getActionTreeItems = "/Action/getActionTreeItems";
+            ViewBag.createActionGroup = "/Action/createActionGroup";
+            ViewBag.editActionGroup = "/Action/editActionGroup";
+            ViewBag.createAction = "/Action/createAction";
+            ViewBag.editAction = "/Action/editAction";
+            ViewBag.deleteAction = "/Action/deleteAction";
+            ViewBag.deleteActionGroup = "/Action/deleteActionGroup";
+            ViewBag.getLastUpdateData = "/Action/getLastUpdateData";
+            ViewBag.closeAction = "/Action/closeAction";
+            ViewBag.draftStatus = "/Action/draftStatus";
+            ViewBag.startActionStatus = "/Action/startActionStatus";
+            ViewBag.updateAction = "/Action/updateAction";
+            ViewBag.denyAction = "/Action/denyAction";
+            ViewBag.getEventSonsWeight = "/Home/getEventSonsWeight";
+            ViewBag.getActionsforWeight = "/Action/getActionsforWeight";
+            ViewBag.updateWeights = "/Action/updateWeights";
+            ViewBag.UploadAttachmentController = "/Action/UploadAttachment"; 
+            ViewBag.getAttachments = "/Action/getAttachments";
+            ViewBag.DownloadController = "/Action/DownloadAttachments";
+            ViewBag.RemoveAttachmentController = "/Action/RemoveAttachments";
+
+
+            return View();
+        }
+
+        public JsonResult getActionTreeItems(string ID_EVENT)
+        {
+            string strErr = string.Empty;
+            List<ActionTreeObject> pData = null;
+            string Permission = HttpContext.Session["Permission"].ToString();
+            string EmployeeID = HttpContext.Session["EmployeeID"].ToString();
+
+            try
+            {
+                pData = ActionDataFlow.getActionTreeItems(ID_EVENT, Permission, EmployeeID);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (pData == null)
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = pData }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult getActionTreeFilteredItems(string[] filterArray)
+        {
+            string strErr = string.Empty;
+            List<ActionTreeObject> pData = null;
+            string Permission = HttpContext.Session["Permission"].ToString();
+            string EmployeeID = HttpContext.Session["EmployeeID"].ToString();
+
+            try
+            {
+                pData = ActionDataFlow.getActionTreeFilteredItems(filterArray, Permission, EmployeeID);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (pData == null)
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = pData }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult createActionGroup(string[] actionGroupArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.createActionGroup(actionGroupArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = "Planned end date cannot be lower than planned start date" }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult editActionGroup(string[] editActionGroupArray, string[] actionGroupDataArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.editActionGroup(editActionGroupArray, actionGroupDataArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult createAction(string[] actionArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.createAction(actionArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = "Planned end date cannot be lower than planned start date" }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult editAction(string[] editActionArray, string[] actionDataArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.editAction(editActionArray, actionDataArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult deleteAction(string[] deleteArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.deleteAction(deleteArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult deleteActionGroup(string[] deleteGroupArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.deleteActionGroup(deleteGroupArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult getLastUpdateData(string A_ID)
+
+        {
+            string strErr = string.Empty;
+            List<LastUpdateObject> pData = null;
+
+            try
+            {
+                pData = ActionDataFlow.getLastUpdateData(A_ID);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (pData == null)
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = pData }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult closeAction(string[] closeActionArray)
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.closeAction(closeActionArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult draftStatus(string[] draftArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.draftStatus(draftArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult startActionStatus(string[] startActionArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.startActionStatus(startActionArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult updateAction(string[] addUpdateArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.updateAction(addUpdateArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult denyAction(string[] denyArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.denyAction(denyArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult getActionsforWeight(string[] actionInfoArray)
+
+        {
+            string strErr = string.Empty;
+            List<ActionTreeObject> pData = null;
+
+            try
+            {
+                pData = ActionDataFlow.getActionsforWeight(actionInfoArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (pData == null)
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = pData }, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult updateWeights(string[] weightArray)
+
+        {
+            string strErr = string.Empty;
+            Boolean items = false;
+
+            try
+            {
+                items = ActionDataFlow.updateWeights(weightArray);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (items == false)
+
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        public ActionResult UploadAttachment(string Name, string actionID)
+        {
+            string strErr = string.Empty;
+            try
+            {
+                HttpPostedFileBase postedFile = Request.Files["file"];
+                if (postedFile != null)
+                {
+                    SessionManager.SetSessionAttribute("ServerTemporaryPath", Server.MapPath("~/App_Data"));
+
+                    string strTemporaryFileNameAndPath = Path.Combine(Server.MapPath("~/App_Data"), Path.GetFileName(postedFile.FileName));
+
+                    postedFile.SaveAs(strTemporaryFileNameAndPath);
+
+                    if (ActionDataFlow.addAttachment(strTemporaryFileNameAndPath, actionID))
+                    {
+                        return Content("{success:true, result:\"File uploaded correctly\"}"); //(4)
+                    }
+                else
+                        return new JsonResult() //(6)
+                        {
+                            ContentType = "text/html",
+                            Data = new { success = false, error = strErr }
+                        };
+                }
+            }
+            catch (Exception exe)
+            {
+                strErr = exe.Message;
+            }
+
+            return this.Json(new //(6)
+            {
+                success = false,
+                error = string.Format("File uploaded error: {0}", strErr),
+                message = string.Format("File uploaded error: {0}", strErr)
+            });
+
+        }
+
+        public JsonResult getAttachments(string A_ID)
+
+        {
+            string strErr = string.Empty;
+            List<PathObject> pData = null;
+
+            try
+            {
+                pData = ActionDataFlow.getAttachments(A_ID);
+            }
+            catch (Exception ex)
+            {
+                strErr = ex.Message;
+            }
+
+            if (pData == null)
+                return this.Json(new { sucess = false, statusText = strErr }, JsonRequestBehavior.AllowGet);
+            else
+                return this.Json(new { sucess = true, items = pData }, JsonRequestBehavior.AllowGet);
+        }
+
+        public ActionResult DownloadAttachments(string Filename)
+        {
+            string strErr = string.Empty;
+            string contentType = "unknown";
+            return File(Filename, contentType, Path.GetFileName(Filename));
+
+        }
+
+        public JsonResult RemoveAttachments(string[] infoArray)
+        {
+            string strErr = string.Empty;
+
+            //DataTable dtAttachments = null;
+            if (ActionDataFlow.RemoveAttachments(infoArray))
+                return this.Json(new
+                {
+                    success = true,
+                    //AttachmentsList = ConfigInterface.DataTableToEnumerable(dtAttachments)
+                }, JsonRequestBehavior.AllowGet);
+            else
+            {
+                strErr = string.IsNullOrWhiteSpace(strErr) ? "Please, Close and Open again this DDM before you saved it." : strErr;
+                return this.Json(new { success = false, statusText = "Error occurred: " + strErr }, JsonRequestBehavior.AllowGet);
+            }
+        }
+
+
+
+
+
+    }
+}
