@@ -1,4 +1,0 @@
-* linguist-vendored
-*.extjs linguist-vendored=true
-*.c# linguist-vendored=true
-*.plsql linguist-vendored=true
